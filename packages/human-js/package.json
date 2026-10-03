@@ -1,0 +1,108 @@
+{
+  "name": "@wayza/human",
+  "version": "0.1.0",
+  "description": "Your agent already pauses for approval. Now it can reach the person.",
+  "keywords": [
+    "wayza",
+    "human-in-the-loop",
+    "approval",
+    "agents",
+    "ai-agents",
+    "openai-agents",
+    "claude-agent-sdk",
+    "vercel-ai-sdk",
+    "langgraph",
+    "mastra"
+  ],
+  "homepage": "https://wayza.com",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./src/index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./openai": {
+      "types": "./types/openai.d.ts",
+      "default": "./src/openai.js"
+    },
+    "./claude": {
+      "types": "./types/claude.d.ts",
+      "default": "./src/claude.js"
+    },
+    "./vercel": {
+      "types": "./types/vercel.d.ts",
+      "default": "./src/vercel.js"
+    },
+    "./langgraph": {
+      "types": "./types/langgraph.d.ts",
+      "default": "./src/langgraph.js"
+    },
+    "./mastra": {
+      "types": "./types/mastra.d.ts",
+      "default": "./src/mastra.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "index.d.ts",
+    "types",
+    "README.md",
+    "examples",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "*",
+    "@langchain/langgraph": "*",
+    "@mastra/core": "*",
+    "@openai/agents": "*",
+    "ai": ">=6"
+  },
+  "peerDependenciesMeta": {
+    "@openai/agents": {
+      "optional": true
+    },
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "@langchain/langgraph": {
+      "optional": true
+    },
+    "@mastra/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.287",
+    "@langchain/core": "^1.2.14",
+    "@langchain/langgraph": "^1.4.18",
+    "@mastra/core": "^1.74.0",
+    "@openai/agents": "^0.18.0",
+    "ai": "^7.0.127",
+    "zod": "^4.6.5"
+  },
+  "author": {
+    "name": "Wayza",
+    "email": "support@wayza.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wayza-protocol/wayza-js.git",
+    "directory": "packages/human-js"
+  },
+  "bugs": {
+    "url": "https://github.com/wayza-protocol/wayza-js/issues"
+  }
+}

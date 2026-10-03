@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  js:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [human-js, n8n-nodes-wayza]
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/human-py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install cryptography build twine
+      - run: python -m unittest discover -s tests -v
+      - run: python -m build && twine check dist/*
