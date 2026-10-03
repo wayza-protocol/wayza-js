@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/wayza-protocol/wayza-js/blob/main/SECURITY.md
+    about: Please report these privately, not in an issue.
+  - name: Anything else
+    url: https://wayza.com
+    about: Questions about Wayza itself. Email support@wayza.com.

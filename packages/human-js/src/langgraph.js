@@ -13,7 +13,7 @@ const threadOf = (config) => config?.configurable?.thread_id ?? null;
  * re-runs a node from the top on resume or retry; the requestId is derived from the
  * thread id and title, so a re-run returns the same approval instead of asking again.
  *
- *   const answer = await askHuman({ to: 'graham@wayza.com', title: 'Send the email?' }, config);
+ *   const answer = await askHuman({ to: 'you@example.com', title: 'Send the email?' }, config);
  *
  * @param {import('../index.js').AdapterOptions & { title: string, waitTimeout?: string|number }} opts
  * @param {any} [config] the node's RunnableConfig

@@ -26,13 +26,13 @@ def _b64decode(text: str, urlsafe: bool) -> bytes:
 
 
 def fetch_well_known(origin: str, timeout: float = 10.0) -> dict:
-    """GET {origin}/.well-known/familia.json (cached for ten minutes)."""
+    """GET {origin}/.well-known/wayza.json (cached for ten minutes)."""
     now = time.monotonic()
     with _cache_lock:
         hit = _cache.get(origin)
         if hit and now - hit[0] < _CACHE_SECONDS:
             return hit[1]
-    req = urllib.request.Request(origin + "/.well-known/familia.json", headers={"Accept": "application/json"})
+    req = urllib.request.Request(origin + "/.well-known/wayza.json", headers={"Accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             doc = json.loads(resp.read().decode("utf-8"))
@@ -81,7 +81,7 @@ def verify(
       be signed by that home. Pass None to accept any home whose keys verify the record
       (only do this when you check `record["home"]` yourself).
     - `insecure`: allow an http:// approval URL (local tests and dev homes on localhost).
-    - `key_fetcher`: optional function origin -> familia.json document, for tests or caching.
+    - `key_fetcher`: optional function origin -> wayza.json document, for tests or caching.
     """
     if isinstance(signed_answer, (bytes, bytearray)):
         signed_answer = signed_answer.decode("utf-8")

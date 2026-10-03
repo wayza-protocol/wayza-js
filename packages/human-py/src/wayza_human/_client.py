@@ -210,7 +210,7 @@ class Wayza:
     """Ask a person (or another agent) through Wayza and wait for the signed answer.
 
     >>> wz = Wayza()                     # key from WAYZA_KEY
-    >>> r = wz.ask_and_wait("Refund £40 to order 1182?", to="graham@wayza.com", timeout="24h")
+    >>> r = wz.ask_and_wait("Refund £40 to order 1182?", to="you@example.com", timeout="24h")
     >>> r.approved
     """
 
@@ -327,7 +327,7 @@ class Wayza:
         """POST /approvals. Returns a Result with status "waiting" (or the earlier
         approval when request_id matches one already made).
 
-        `to` is one address or a list: people (graham@wayza.com, someone@example.com),
+        `to` is one address or a list: people (you@example.com, someone@example.com),
         @handles, or another agent's address (@ai-1f2e3d4c). `timeout` (seconds or "24h")
         sets expires_at when you don't pass one. The default request_id is a stable hash
         of the ask, so retries don't ask twice.

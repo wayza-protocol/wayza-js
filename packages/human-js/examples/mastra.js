@@ -14,7 +14,7 @@ const deploy = createStep({
   execute: async (ctx) => {
     // Durable: suspends the run; resumes with the verified answer.
     const answer = await wayzaGate(ctx, {
-      to: 'graham@wayza.com', title: `Deploy ${ctx.inputData.version} to production?`,
+      to: 'you@example.com', title: `Deploy ${ctx.inputData.version} to production?`,
       callback: 'https://agent.example.com/wayza', // gets ?wayza_run=<runId>
     });
     if (!answer) return;
@@ -28,7 +28,7 @@ const announce = createStep({
   outputSchema: z.object({ announced: z.boolean() }),
   // Inline: a short wait inside the step.
   execute: async (ctx) => ({
-    announced: ctx.inputData.deployed && (await askHuman(ctx, { to: 'graham@wayza.com', title: 'Post the release note?', timeout: '5m' })).approved === true,
+    announced: ctx.inputData.deployed && (await askHuman(ctx, { to: 'you@example.com', title: 'Post the release note?', timeout: '5m' })).approved === true,
   }),
 });
 

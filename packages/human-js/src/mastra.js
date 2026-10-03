@@ -9,7 +9,7 @@ import { sentOf } from './index.js';
  * Inline: ask and wait inside a step. The requestId comes from the run id and title,
  * so a retried step returns the same approval.
  *
- *   const answer = await askHuman(ctx, { to: 'graham@wayza.com', title: 'Ship it?' });
+ *   const answer = await askHuman(ctx, { to: 'you@example.com', title: 'Ship it?' });
  *
  * @param {any} ctx the step's execute context
  * @param {import('../index.js').AdapterOptions & { title: string, waitTimeout?: string|number }} opts
@@ -28,7 +28,7 @@ export async function askHuman(ctx, opts) {
  * result, after verifying it is signed by your home and answers the ask this run sent.
  *
  *   execute: async (ctx) => {
- *     const answer = await wayzaGate(ctx, { to: 'graham@wayza.com', title: 'Ship it?', callback });
+ *     const answer = await wayzaGate(ctx, { to: 'you@example.com', title: 'Ship it?', callback });
  *     if (!answer) return;              // suspended
  *     return { shipped: answer.approved === true };
  *   }

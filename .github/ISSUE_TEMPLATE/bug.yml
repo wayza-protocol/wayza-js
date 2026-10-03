@@ -1,0 +1,25 @@
+name: Bug
+description: Something in a package or on wayza.com didn't work
+labels: [bug]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options: ["@wayza/human (npm)", "wayza-human (PyPI)", "n8n-nodes-wayza", "ClawHub skill", "wayza.com API or MCP", "Sign-up, claim or sign-in", "Something else"]
+    validations: { required: true }
+  - type: input
+    id: setup
+    attributes:
+      label: Version and framework
+      placeholder: "@wayza/human 0.1.0 with the Vercel AI SDK 5, Node 22"
+  - type: textarea
+    id: what
+    attributes:
+      label: What you did and what came back
+      description: The call you made and the reply, including the error message. Leave keys out.
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected

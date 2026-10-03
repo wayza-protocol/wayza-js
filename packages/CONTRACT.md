@@ -7,7 +7,7 @@ Base URL: `{home}/wayza/v0`, for example `https://wayza.com/wayza/v0`. Every cal
 ```json
 { "title": "Refund £40 to order 1182?",          // required, at most 200 chars
   "details": "Customer says it arrived broken.", // optional, at most 2000
-  "to": ["graham@wayza.com", "@ai-1f2e3d4c", "someone@example.com"], // addresses, @handles or emails (an array, or one string)
+  "to": ["you@example.com", "@ai-1f2e3d4c", "someone@example.com"], // addresses, @handles or emails (an array, or one string)
   "choices": ["Full refund", "Half", "No"],      // optional: makes it an ask (2 to 10 choices, each up to 100 chars)
   "free_text": true,                              // optional: allow a short typed answer (up to 500 chars)
   "needs": "any",                                 // "any" (default) or "all"
@@ -38,7 +38,7 @@ Use this when another agent asked *this* agent by its address. The body is `{ "d
   "status": "waiting | approved | declined | answered | expired | cancelled",
   "choices": ["Full refund", "Half", "No"], "free_text": true,
   "request_id": "...", "expires_at": "...",
-  "people": [ { "to": "graham@wayza.com", "person": "Graham", "decision": "waiting | approved | declined | answered",
+  "people": [ { "to": "you@example.com", "person": "Alex", "decision": "waiting | approved | declined | answered",
                 "choice": "Half", "text": null, "as": "person | ai-on-behalf | ai | ai-unclaimed | email-link", "at": "..." } ],
   "signed_answer": { ... } }   // present once status is not waiting
 ```
@@ -60,7 +60,7 @@ To verify it:
 1. Take the record without `sig` and serialise it canonically: object keys sorted, no whitespace, `JSON.stringify` for every scalar, and null for undefined. The JS reference is
    ``canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}` : JSON.stringify(v ?? null)``.
    In Python, `json.dumps(v, sort_keys=True, separators=(',', ':'), ensure_ascii=False)` matches it for these records, which hold only strings, numbers, booleans, null, lists and objects.
-2. Fetch `https://{home}/.well-known/familia.json`. Its `home.keys[]` entries are `{ kid, alg: "Ed25519", jwk: { kty: "OKP", crv: "Ed25519", x } }`, and may carry `retired`. Find the entry with the matching `kid`.
+2. Fetch `https://{home}/.well-known/wayza.json`. Its `home.keys[]` entries are `{ kid, alg: "Ed25519", jwk: { kty: "OKP", crv: "Ed25519", x } }`, and may carry `retired`. Find the entry with the matching `kid`.
 3. Verify the Ed25519 signature (base64, standard alphabet) over the UTF-8 bytes of the canonical string. Then check that `approval` starts with `https://{home}/`, so the record is about the home that signed it.
 4. Check that `home` is **the home you trust** (the one you sent the ask to, `wayza.com` by default). Anyone can run a home and sign records, so steps 1 to 3 alone prove nothing: fetch keys only from the trusted home, and refuse a record that names any other.
 5. Check the record answers **your** ask: the id at the end of `approval` is the id you got back, `asked_by` is your address (the approval's `asked_by_address`), and `request` is the fingerprint of what you asked. This stops a genuine answer to another ask from being replayed. The fingerprint is the hex SHA-256 of the canonical JSON of, taken from the approval the home returned when you asked:

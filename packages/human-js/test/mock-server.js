@@ -49,7 +49,7 @@ export async function startMock() {
   const server = http.createServer(async (req, res) => {
     const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
     const url = new URL(req.url, home ? `http://${home}` : 'http://x');
-    if (url.pathname === '/.well-known/familia.json') {
+    if (url.pathname === '/.well-known/wayza.json') {
       calls.push('keys');
       return send(200, { home: { name: home, keys: [{ kid, alg: 'Ed25519', jwk: { kty: 'OKP', crv: 'Ed25519', x: jwk.x } }] } });
     }

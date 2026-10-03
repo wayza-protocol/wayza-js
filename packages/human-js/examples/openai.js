@@ -16,7 +16,7 @@ const agent = new Agent({ name: 'Support', instructions: 'Help with orders.', to
 // Inline: wait in-process for the answer (fine for short waits).
 let result = await run(agent, 'Refund £40 on order 1182, it arrived broken.');
 while (result.interruptions?.length) {
-  result = await run(agent, await approveWithWayza(result, { to: 'graham@wayza.com', timeout: '30m' }));
+  result = await run(agent, await approveWithWayza(result, { to: 'you@example.com', timeout: '30m' }));
 }
 console.log(result.finalOutput);
 
@@ -24,7 +24,7 @@ console.log(result.finalOutput);
 const db = new Map();
 result = await run(agent, 'Refund £15 on order 1190.');
 if (result.interruptions?.length) {
-  const saved = await sendForApproval(result, { to: 'graham@wayza.com', callback: 'https://agent.example.com/wayza' });
+  const saved = await sendForApproval(result, { to: 'you@example.com', callback: 'https://agent.example.com/wayza' });
   db.set('run-1190', saved); // { state: RunState string, pending: [{ id, request, asked_by, callId }] }
 }
 

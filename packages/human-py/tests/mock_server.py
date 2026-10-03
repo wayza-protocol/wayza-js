@@ -199,7 +199,7 @@ class MockHome:
                 u = urlparse(self.path)
                 body = self._body() if method == "POST" else None
                 home.requests.append((method, u.path, body))
-                if u.path == "/.well-known/familia.json":
+                if u.path == "/.well-known/wayza.json":
                     return self._send(200, home.well_known())
                 if home.fail_next:
                     return self._send(home.fail_next.pop(0), {"error": "try again"})

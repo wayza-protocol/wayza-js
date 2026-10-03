@@ -18,7 +18,7 @@ const messages = [{ role: 'user', content: 'Delete temp.txt' }];
 
 // Inline. (v6: result.response.messages; v7: result.responseMessages)
 let result = await generateText({ model, tools, messages });
-messages.push(...result.responseMessages, ...(await wayzaApprovals(result, { to: 'graham@wayza.com' })));
+messages.push(...result.responseMessages, ...(await wayzaApprovals(result, { to: 'you@example.com' })));
 result = await generateText({ model, tools, messages });
 console.log(result.text);
 
@@ -26,7 +26,7 @@ console.log(result.text);
 const saved = { messages: [...messages], pending: [] };
 result = await generateText({ model, tools, messages: saved.messages });
 saved.messages.push(...result.responseMessages);
-saved.pending = (await sendForApproval(result, { to: 'graham@wayza.com', callback: 'https://agent.example.com/wayza' })).pending;
+saved.pending = (await sendForApproval(result, { to: 'you@example.com', callback: 'https://agent.example.com/wayza' })).pending;
 
 export async function onWayzaCallback(request) {
   const r = await resumeFromWayza(saved.pending, { answers: [await handleCallback(request)] });

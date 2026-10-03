@@ -6,7 +6,7 @@ import { wayzaCanUseTool, allowApproved, resumePrompt } from '@wayza/human/claud
 // Inline: each tool call that needs permission waits for the person's answer.
 for await (const message of query({
   prompt: 'Tidy up /tmp/reports and delete anything older than a week',
-  options: { canUseTool: wayzaCanUseTool({ to: 'graham@wayza.com', timeout: '15m', when: (tool) => tool !== 'Read' }) },
+  options: { canUseTool: wayzaCanUseTool({ to: 'you@example.com', timeout: '15m', when: (tool) => tool !== 'Read' }) },
 })) {
   if ('result' in message) console.log(message.result);
 }
@@ -17,7 +17,7 @@ for await (const message of query({
   prompt: 'Deploy the staging branch',
   options: {
     canUseTool: wayzaCanUseTool({
-      to: 'graham@wayza.com', mode: 'durable', callback: 'https://agent.example.com/wayza',
+      to: 'you@example.com', mode: 'durable', callback: 'https://agent.example.com/wayza',
       onPending: (p) => { pending = p; }, // save it with the session id
     }),
   },
@@ -29,7 +29,7 @@ export async function onWayzaCallback(request) {
   const answer = await handleCallback(request);
   for await (const message of query({
     prompt: resumePrompt(answer, pending),
-    options: { resume: sessionId, canUseTool: await allowApproved(answer, pending, { to: 'graham@wayza.com' }) },
+    options: { resume: sessionId, canUseTool: await allowApproved(answer, pending, { to: 'you@example.com' }) },
   })) {
     if ('result' in message) console.log(message.result);
   }

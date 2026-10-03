@@ -54,7 +54,7 @@ from wayza_human import Wayza
 
 wz = Wayza()  # key from WAYZA_KEY (your agent's fam_... connector key); home="https://wayza.com"
 
-r = wz.ask_and_wait("Refund £40 to order 1182?", to="graham@wayza.com",
+r = wz.ask_and_wait("Refund £40 to order 1182?", to="you@example.com",
                     details="Customer says it arrived broken.", timeout="24h")
 if r.approved:
     refund()
@@ -92,7 +92,7 @@ call id or the flow id.
 
 ```python
 from wayza_human import AsyncWayza
-r = await AsyncWayza().ask_and_wait("Deploy to prod?", to="@graham", timeout="1h")
+r = await AsyncWayza().ask_and_wait("Deploy to prod?", to="@your-name", timeout="1h")
 ```
 
 ### Callbacks and verification
@@ -113,7 +113,7 @@ could be a genuine answer to a different ask on your home, so check it against y
 before acting.
 
 `verify()` serialises the record without `sig` canonically. It fetches the keys from
-`{origin of record["approval"]}/.well-known/familia.json`, checks the Ed25519 signature,
+`{origin of record["approval"]}/.well-known/wayza.json`, checks the Ed25519 signature,
 and requires `urlparse(approval).netloc == record["home"]`. The record must also come from
 the home you trust: `home="https://wayza.com"` by default (`home=None` turns that check off).
 It requires https unless you pass `insecure=True` (for local or dev homes on
@@ -145,16 +145,16 @@ ask and check them on resume; resuming needs the signed answer (and `wayza-human
 
 ```python
 # LangGraph: ask from inside a node or tool (blocking), or pause with interrupt() (durable)
-r = wayza_human.langgraph.ask_human("Refund £40?", to="graham@wayza.com", durable=True)
+r = wayza_human.langgraph.ask_human("Refund £40?", to="you@example.com", durable=True)
 
 # CrewAI Flows: @human_feedback(message="Approve?", emit=["approved", "rejected"], llm=..., provider=...)
-provider = wayza_human.crewai.WayzaFeedbackProvider(to="graham@wayza.com")
+provider = wayza_human.crewai.WayzaFeedbackProvider(to="you@example.com")
 
 # Google ADK: answer FunctionTool(require_confirmation=True) / tool_context.request_confirmation()
-reply = wayza_human.adk.answer_confirmations(events, to="graham@wayza.com")
+reply = wayza_human.adk.answer_confirmations(events, to="you@example.com")
 
 # OpenAI Agents SDK: @function_tool(needs_approval=True)
-result = await wayza_human.openai_agents.run_with_approvals(agent, "cancel order 7", to="graham@wayza.com")
+result = await wayza_human.openai_agents.run_with_approvals(agent, "cancel order 7", to="you@example.com")
 ```
 
 ### LangGraph (`wayza_human.langgraph`)

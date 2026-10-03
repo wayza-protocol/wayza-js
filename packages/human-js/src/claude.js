@@ -15,7 +15,7 @@ function defaults(toolName, input, ctx) {
 /**
  * A canUseTool callback that asks a person through Wayza.
  *
- *   query({ prompt, options: { canUseTool: wayzaCanUseTool({ to: 'graham@wayza.com' }) } })
+ *   query({ prompt, options: { canUseTool: wayzaCanUseTool({ to: 'you@example.com' }) } })
  *
  * Inline (default): waits for the answer, then allows or denies.
  * Durable (`mode: 'durable'`): sends the ask (use `callback`), calls `onPending`, and
@@ -56,7 +56,7 @@ export function wayzaCanUseTool(opts) {
  * verified against your home (`fallback.wayza`/`fallback.home`, default wayza.com)
  * and checked against the saved ask first.
  *
- *   options.canUseTool = await allowApproved(answer, pending, { to: 'graham@wayza.com' })
+ *   options.canUseTool = await allowApproved(answer, pending, { to: 'you@example.com' })
  *
  * @param {any} answer a result from handleCallback() for pending.id
  * @param {{ id: any, request: string, asked_by: string, toolName: string, input: any }} pending

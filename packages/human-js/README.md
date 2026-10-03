@@ -20,7 +20,7 @@ import { Wayza } from '@wayza/human';
 const wayza = new Wayza(); // { key = process.env.WAYZA_KEY, home = 'https://wayza.com', fetch }
 
 const r = await wayza.askAndWait({
-  to: 'graham@wayza.com',            // addresses, @handles, emails, or another agent
+  to: 'you@example.com',            // addresses, @handles, emails, or another agent
   title: 'Refund £40 to order 1182?',
   details: 'Customer says it arrived broken.',
   timeout: '30m',                    // or expiresAt
@@ -67,7 +67,7 @@ await verify(signedAnswer, { home: 'https://wayza.com' }); // true, or throws Wa
 await wayza.verify(signedAnswer);                            // the same, against your client's home
 ```
 
-`verify` requires the record to be signed by **the home you trust** (`home`, default `https://wayza.com`). Anyone can run a home and sign records, so a record from any other home is refused, however well signed. It then serialises the record canonically, fetches that home's keys from `/.well-known/familia.json` (cached for ten minutes, refetched once for an unknown key id), checks the Ed25519 signature with `crypto.subtle`, and requires the approval URL to be on that home (`https`). For a local dev home on `http://localhost`, pass `{ insecure: true }`.
+`verify` requires the record to be signed by **the home you trust** (`home`, default `https://wayza.com`). Anyone can run a home and sign records, so a record from any other home is refused, however well signed. It then serialises the record canonically, fetches that home's keys from `/.well-known/wayza.json` (cached for ten minutes, refetched once for an unknown key id), checks the Ed25519 signature with `crypto.subtle`, and requires the approval URL to be on that home (`https`). For a local dev home on `http://localhost`, pass `{ insecure: true }`.
 
 **Tie the answer to your ask.** A genuine answer to some other ask must not unlock this one. The signed record carries the approval URL, the asker (`asked_by`) and a fingerprint of the question (`request`). `waitFor(approval)` and `askAndWait` check all three for you. When you pause and resume later, save `await sentOf(approval)` (`{ id, request, asked_by }`) rather than just the id, and check with `checkAnswer(signedAnswer, sent)` or `handleCallback(req, { wayza, expect: sent })`. The durable adapters save and check this themselves.
 
@@ -100,7 +100,7 @@ Tools with `needsApproval` stop the run with `result.interruptions`. The adapter
 import { approveWithWayza, sendForApproval, resumeFromWayza } from '@wayza/human/openai';
 
 // inline
-result = await run(agent, await approveWithWayza(result, { to: 'graham@wayza.com' }));
+result = await run(agent, await approveWithWayza(result, { to: 'you@example.com' }));
 
 // durable
 const saved = await sendForApproval(result, { to, callback }); // { state: RunState string, pending }
@@ -119,7 +119,7 @@ if (ready) result = await run(agent, state);
 ```js
 import { wayzaCanUseTool } from '@wayza/human/claude';
 
-query({ prompt, options: { canUseTool: wayzaCanUseTool({ to: 'graham@wayza.com' }) } });
+query({ prompt, options: { canUseTool: wayzaCanUseTool({ to: 'you@example.com' }) } });
 ```
 
 The SDK has no saveable pause, so durable mode (`mode: 'durable'`) sends the ask, hands you the pending call through `onPending`, and denies with `interrupt: true` to stop the query. When the answer arrives, resume the session with `options.resume = sessionId`, `canUseTool: await allowApproved(answer, pending, undefined, { wayza })` (which allows exactly the approved call once) and `prompt: resumePrompt(answer, pending)`. `when(toolName, input)` lets calls through without asking. [examples/claude.js](examples/claude.js)
@@ -132,7 +132,7 @@ A tool with `needsApproval` (or, in v7, a `toolApproval` entry) puts `tool-appro
 import { wayzaApprovals, sendForApproval, resumeFromWayza } from '@wayza/human/vercel';
 
 // inline (v7: result.responseMessages; v6: result.response.messages)
-messages.push(...result.responseMessages, ...(await wayzaApprovals(result, { to: 'graham@wayza.com' })));
+messages.push(...result.responseMessages, ...(await wayzaApprovals(result, { to: 'you@example.com' })));
 
 // durable
 const { pending } = await sendForApproval(result, { to, callback });
@@ -148,7 +148,7 @@ if (r.ready) messages.push(...r.messages);
 import { askHuman, wayzaInterrupt, sendForApproval, resumeFromWayza } from '@wayza/human/langgraph';
 
 // inline, inside a node: a re-run of the node reuses the same ask
-const answer = await askHuman({ to: 'graham@wayza.com', title: 'Send it?' }, config);
+const answer = await askHuman({ to: 'you@example.com', title: 'Send it?' }, config);
 
 // durable: the node interrupts, you ask after invoke, and resume with Command
 const answer = interrupt(wayzaInterrupt({ title: 'Send it?' }));        // in the node
@@ -165,7 +165,7 @@ When several Wayza interrupts are pending, `resume` is a map from interrupt id t
 import { askHuman, wayzaGate, resumeFromWayza } from '@wayza/human/mastra';
 
 execute: async (ctx) => {
-  const answer = await wayzaGate(ctx, { to: 'graham@wayza.com', title: 'Deploy?', callback });
+  const answer = await wayzaGate(ctx, { to: 'you@example.com', title: 'Deploy?', callback });
   if (!answer) return;  // suspended with { wayza: { id } }
   return { deployed: answer.approved === true };
 }
@@ -199,7 +199,7 @@ An agent needs a Wayza key to use any of this. A person can make one for their a
 node --test packages/human-js/test/
 ```
 
-The tests run a local mock home (`test/mock-server.js`) that implements the REST contract, signs answers with a fresh Ed25519 key and serves `/.well-known/familia.json`. `test/adapters.test.js` drives each adapter with fake objects shaped like the frameworks' APIs. `test/frameworks.test.js` drives the real OpenAI Agents, AI SDK, LangGraph and Mastra packages (devDependencies, with fake models) and skips any that are not installed.
+The tests run a local mock home (`test/mock-server.js`) that implements the REST contract, signs answers with a fresh Ed25519 key and serves `/.well-known/wayza.json`. `test/adapters.test.js` drives each adapter with fake objects shaped like the frameworks' APIs. `test/frameworks.test.js` drives the real OpenAI Agents, AI SDK, LangGraph and Mastra packages (devDependencies, with fake models) and skips any that are not installed.
 
 ## Licence
 

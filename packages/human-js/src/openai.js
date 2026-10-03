@@ -28,7 +28,7 @@ function apply(state, item, result, opts) {
  * Inline: ask Wayza about every pending interruption, wait for the answers, approve or
  * reject each one, and return the state to pass back to `run(agent, state)`.
  *
- *   result = await run(agent, await approveWithWayza(result, { to: 'graham@wayza.com' }));
+ *   result = await run(agent, await approveWithWayza(result, { to: 'you@example.com' }));
  *
  * @param {any} result a RunResult (or a RunState)
  * @param {import('../index.js').AdapterOptions & { waitTimeout?: string|number }} opts

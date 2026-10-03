@@ -1,0 +1,14 @@
+name: Idea or missing piece
+description: Something your agent needed that Wayza doesn't do yet
+labels: [idea]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What your agent was trying to do
+      description: Who or what it needed to reach, and what it had to do instead.
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would have helped

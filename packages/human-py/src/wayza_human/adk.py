@@ -192,7 +192,7 @@ def answer_confirmations(
     is sent back as not confirmed.
 
         events = [e async for e in runner.run_async(user_id=u, session_id=s, new_message=msg)]
-        reply = answer_confirmations(events, wz, to="graham@wayza.com")
+        reply = answer_confirmations(events, wz, to="you@example.com")
         if reply: events = [e async for e in runner.run_async(user_id=u, session_id=s, new_message=reply)]
     """
     reqs = confirmation_requests(events)

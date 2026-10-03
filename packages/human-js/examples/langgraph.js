@@ -13,7 +13,7 @@ const graph = new StateGraph(State)
   })
   // Inline: wait inside the node (a re-run reuses the same ask).
   .addNode('followUp', async (s, config) => {
-    const answer = await askHuman({ to: 'graham@wayza.com', title: 'Book a follow-up call?', timeout: '10m' }, config);
+    const answer = await askHuman({ to: 'you@example.com', title: 'Book a follow-up call?', timeout: '10m' }, config);
     return { sent: s.sent && answer.approved !== false };
   })
   .addEdge(START, 'review').addEdge('review', 'followUp').addEdge('followUp', END)
@@ -21,7 +21,7 @@ const graph = new StateGraph(State)
 
 const config = { configurable: { thread_id: 'email-42' } };
 const result = await graph.invoke({ draft: 'Q3 numbers attached.' }, config);
-const { pending } = await sendForApproval(result, { to: 'graham@wayza.com', callback: 'https://agent.example.com/wayza' }, config);
+const { pending } = await sendForApproval(result, { to: 'you@example.com', callback: 'https://agent.example.com/wayza' }, config);
 
 export async function onWayzaCallback(request) {
   const { ready, resume } = await resumeFromWayza(pending, { answers: [await handleCallback(request)] });

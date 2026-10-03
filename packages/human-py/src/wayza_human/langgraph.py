@@ -208,7 +208,7 @@ def approval_node(
     ``make_ask(state)`` returns ask_human keyword arguments, at least ``title``.
 
         builder.add_node("approve", approval_node(lambda s: {"title": f"Refund {s['amount']}?"},
-                                                  to="graham@wayza.com"))
+                                                  to="you@example.com"))
     """
 
     def node(state: Any) -> dict:
@@ -240,7 +240,7 @@ def require_approval(
     given by an AI doesn't count.
 
         @tool
-        @require_approval(to="graham@wayza.com")
+        @require_approval(to="you@example.com")
         def refund(order_id: int, amount: float) -> str: ...
     """
 

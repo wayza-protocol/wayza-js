@@ -351,7 +351,7 @@ async function loadKeys(origin, f, fresh = false) {
   const hit = keyCache.get(origin);
   if (hit && !fresh && Date.now() - hit.at < KEY_TTL) return hit.keys;
   const keys = (async () => {
-    const res = await f(`${origin}/.well-known/familia.json`, { headers: { accept: 'application/json', 'user-agent': USER_AGENT } });
+    const res = await f(`${origin}/.well-known/wayza.json`, { headers: { accept: 'application/json', 'user-agent': USER_AGENT } });
     if (!res.ok) throw new WayzaVerifyError(`Could not fetch keys from ${origin}: ${res.status}`);
     const doc = await res.json();
     return Array.isArray(doc?.home?.keys) ? doc.home.keys : [];

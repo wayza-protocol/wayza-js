@@ -31,7 +31,7 @@ const toolMessages = (content) => (content.length ? [{ role: 'tool', content }] 
  * Inline: ask Wayza about each approval request, wait, and return the tool message(s)
  * to append before calling generate again.
  *
- *   messages.push(...result.responseMessages, ...(await wayzaApprovals(result, { to: 'graham@wayza.com' })));
+ *   messages.push(...result.responseMessages, ...(await wayzaApprovals(result, { to: 'you@example.com' })));
  *
  * @param {any} result
  * @param {import('../index.js').AdapterOptions & { waitTimeout?: string|number }} opts
