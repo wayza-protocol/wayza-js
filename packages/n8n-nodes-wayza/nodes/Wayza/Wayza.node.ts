@@ -5,6 +5,7 @@ import {
 	WAIT_INDEFINITELY,
 	type IDataObject,
 	type IExecuteFunctions,
+	type IHookFunctions,
 	type IHttpRequestMethods,
 	type INodeExecutionData,
 	type INodeType,
@@ -30,7 +31,7 @@ import {
 } from './wayza';
 
 // Keep in step with package.json (a test checks it).
-export const VERSION = '0.1.3';
+export const VERSION = '0.1.4';
 const USER_AGENT = `n8n-nodes-wayza/${VERSION}`;
 
 // The { error } text Wayza sent with a failed request, wherever this n8n version put the response.
@@ -86,7 +87,6 @@ interface PendingAsk extends SentAsk {
 
 // Not a trigger: the webhook below is this execution's resume URL (like n8n's own "send and wait" nodes),
 // handed to Wayza with each ask, so there is nothing to register or delete on Wayza.
-// eslint-disable-next-line @n8n/community-nodes/webhook-lifecycle-complete
 export class Wayza implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Wayza: Ask a person',
@@ -269,6 +269,23 @@ export class Wayza implements INodeType {
 				],
 			},
 		],
+	};
+
+	// n8n only calls these for a workflow's standing webhooks; a resume URL (restartWebhook) is never
+	// registered with Wayza, because each ask carries its own callback. So there is nothing to check,
+	// create or delete, and each reports success.
+	webhookMethods = {
+		default: {
+			async checkExists(this: IHookFunctions): Promise<boolean> {
+				return true;
+			},
+			async create(this: IHookFunctions): Promise<boolean> {
+				return true;
+			},
+			async delete(this: IHookFunctions): Promise<boolean> {
+				return true;
+			},
+		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
