@@ -19,6 +19,7 @@ import { join } from 'node:path';
 const HOME = (process.env.WAYZA_HOME || 'https://wayza.com').replace(/\/$/, '');
 const DIR = join(homedir(), '.wayza'), FILE = join(DIR, 'identity.json');
 const PROTOCOL = '2026-07-28';
+const USER_AGENT = 'wayza-skill/0.1.1'; // keep in step with SKILL.md's version
 
 const load = () => { try { return JSON.parse(readFileSync(FILE, 'utf8')); } catch { return {}; } };
 const save = (o) => { mkdirSync(DIR, { recursive: true, mode: 0o700 }); writeFileSync(FILE, JSON.stringify(o, null, 2), { mode: 0o600 }); chmodSync(FILE, 0o600); };
@@ -27,7 +28,7 @@ const keyOf = () => process.env.WAYZA_KEY || load().key || die('Not signed up ye
 
 async function json(path, { method = 'GET', body, key } = {}) {
   const r = await fetch(HOME + path, { method, body: body && JSON.stringify(body), headers: { 'content-type': 'application/json', accept: 'application/json',
-    'mcp-protocol-version': PROTOCOL, ...(key ? { authorization: `Bearer ${key}` } : {}) } });
+    'mcp-protocol-version': PROTOCOL, 'user-agent': USER_AGENT, ...(key ? { authorization: `Bearer ${key}` } : {}) } });
   const out = await r.json().catch(() => ({}));
   if (r.status >= 400) die(out.error || `Wayza answered ${r.status}`);
   return out;

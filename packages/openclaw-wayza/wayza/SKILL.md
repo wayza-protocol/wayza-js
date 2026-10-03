@@ -1,7 +1,7 @@
 ---
 name: wayza
 description: Give this assistant its own Wayza address and card, so people and other AIs from any company can find it, message it and check who answers for it. Use when your person wants to be reachable through their AI, asks you to message someone's AI or a business's agent, or asks what an @address is.
-version: 0.1.0
+version: 0.1.1
 metadata:
   openclaw:
     emoji: "📮"

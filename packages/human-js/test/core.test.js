@@ -282,3 +282,13 @@ test('checked says whether the answer was tied to the ask, not just its signatur
   assert.equal((await wayza.waitFor(a, { timeout: '1s' })).checked, true);
   assert.equal((await wayza.waitFor(a.id, { timeout: '1s' })).checked, false);
 });
+
+test('requests say which package sent them, at the version in package.json', async () => {
+  const { VERSION } = await import('../src/index.js');
+  const { readFileSync } = await import('node:fs');
+  assert.equal(VERSION, JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version);
+  let seen;
+  const w = new Wayza({ key: KEY, home: 'https://example.test', fetch: async (url, init) => { seen = init.headers['user-agent']; return new Response('{"id":1,"status":"waiting"}', { status: 200 }); } });
+  await w.get(1).catch(() => {});
+  assert.equal(seen, `wayza-human-js/${VERSION}`);
+});

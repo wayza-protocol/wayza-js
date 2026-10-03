@@ -29,6 +29,29 @@ import {
 	type SentAsk,
 } from './wayza';
 
+// Keep in step with package.json (a test checks it).
+export const VERSION = '0.1.2';
+const USER_AGENT = `n8n-nodes-wayza/${VERSION}`;
+
+// The { error } text Wayza sent with a failed request, wherever this n8n version put the response.
+function wayzaReason(error: unknown): string | undefined {
+	const e = error as { response?: { data?: unknown; body?: unknown }; cause?: { response?: { data?: unknown; body?: unknown } } };
+	for (const r of [e?.response, e?.cause?.response]) {
+		for (let d of [r?.data, r?.body]) {
+			if (typeof d === 'string') {
+				try {
+					d = JSON.parse(d);
+				} catch {
+					continue;
+				}
+			}
+			const msg = (d as { error?: unknown } | undefined)?.error;
+			if (typeof msg === 'string' && msg) return msg;
+		}
+	}
+	return undefined;
+}
+
 const UNIT_SECONDS: Record<string, number> = { minutes: 60, hours: 3600, days: 86400 };
 
 interface Creds {
@@ -254,11 +277,14 @@ export class Wayza implements INodeType {
 				return (await this.helpers.httpRequestWithAuthentication.call(this, 'wayzaApi', {
 					method,
 					url: base(creds.home) + path,
+					headers: { 'User-Agent': USER_AGENT },
 					body,
 					json: true,
 				})) as JsonObject;
 			} catch (error) {
-				throw new NodeApiError(this.getNode(), error as N8nJsonObject);
+				// Show Wayza's own reason (e.g. "@x is an AI with no owner too"), not just n8n's "Bad request".
+				const reason = wayzaReason(error);
+				throw new NodeApiError(this.getNode(), error as N8nJsonObject, reason ? { message: reason, description: reason } : {});
 			}
 		};
 
@@ -380,7 +406,7 @@ export class Wayza implements INodeType {
 			result = await parseCallback(body, {
 				home: creds.home || 'https://wayza.com',
 				insecure: options.insecure === true,
-				fetchJson: async (url) => await this.helpers.httpRequest({ method: 'GET', url, json: true }),
+				fetchJson: async (url) => await this.helpers.httpRequest({ method: 'GET', url, json: true, headers: { 'User-Agent': USER_AGENT } }),
 			});
 			// A genuine answer to some other ask (or to this one, asked differently) is refused too.
 			checkAnswer(result.signed_answer as JsonObject | null, sent);

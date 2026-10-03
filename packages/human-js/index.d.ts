@@ -1,3 +1,6 @@
+/** This package's version; requests send `User-Agent: wayza-human-js/<version>`. */
+export const VERSION: string;
+
 export type Status = 'waiting' | 'approved' | 'declined' | 'answered' | 'expired' | 'cancelled';
 export type Decision = 'waiting' | 'approved' | 'declined' | 'answered';
 /** Who answered: a person, an AI acting for its person, an AI, an AI with no owner, or an emailed link. */

@@ -274,3 +274,16 @@ test('credentials send a bearer token and test GET /approvals', () => {
 	assert.strictEqual(c.authenticate.properties.headers.Authorization, '=Bearer {{$credentials.apiKey}}');
 	assert.strictEqual(c.test.request.url, '/approvals');
 });
+
+test('the node reports its own version as User-Agent', () => {
+	const { VERSION } = require('../dist/nodes/Wayza/Wayza.node.js');
+	assert.strictEqual(VERSION, require('../package.json').version);
+});
+
+test("a refused ask shows Wayza's own reason, not just n8n's status text", async () => {
+	for (const response of [{ status: 400, data: { error: '@ai-b is an AI with no owner too.' } }, { status: 400, body: '{"error":"@ai-b is an AI with no owner too."}' }]) {
+		const { ctx } = execContext({ ...baseParams, mode: 'send', options: {} });
+		ctx.helpers.httpRequestWithAuthentication = async () => { const e = new Error('Request failed with status code 400'); e.response = response; throw e; };
+		await assert.rejects(new Wayza().execute.call(ctx), /no owner too/);
+	}
+});
