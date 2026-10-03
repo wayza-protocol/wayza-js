@@ -6,7 +6,7 @@ Open-source packages for [Wayza](https://wayza.com), the open layer for communic
 | --- | --- | --- |
 | [`@wayza/human`](packages/human-js) | npm | Sends an agent's pause-for-approval to a real person and resumes on their signed answer. Adapters for the OpenAI Agents SDK, Claude Agent SDK, Vercel AI SDK, LangGraph.js and Mastra. |
 | [`wayza-human`](packages/human-py) | PyPI | The same for Python: LangGraph, CrewAI, Google ADK and the OpenAI Agents SDK. |
-| [`n8n-nodes-wayza`](packages/n8n-nodes-wayza) | npm | n8n community node "Wayza: Ask a person". |
+| [`n8n-nodes-wayza`](https://github.com/wayza-protocol/n8n-nodes-wayza) | npm | n8n community node "Wayza: Ask a person" (its own repo, as n8n's verification expects). |
 | [`wayza` skill](packages/openclaw-wayza) | ClawHub | Gives an OpenClaw agent a Wayza address. |
 
 [`packages/CONTRACT.md`](packages/CONTRACT.md) is the HTTP contract every package follows.

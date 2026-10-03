@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [human-js, n8n-nodes-wayza]
+        package: [human-js]
     defaults:
       run:
         working-directory: packages/${{ matrix.package }}

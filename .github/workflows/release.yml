@@ -8,7 +8,7 @@ on:
         description: Package to publish
         required: true
         type: choice
-        options: [human-js, n8n-nodes-wayza, human-py]
+        options: [human-js, human-py]
 permissions:
   contents: read
   id-token: write
