@@ -30,13 +30,15 @@ import {
 } from './wayza';
 
 // Keep in step with package.json (a test checks it).
-export const VERSION = '0.1.2';
+export const VERSION = '0.1.3';
 const USER_AGENT = `n8n-nodes-wayza/${VERSION}`;
 
 // The { error } text Wayza sent with a failed request, wherever this n8n version put the response.
 function wayzaReason(error: unknown): string | undefined {
-	const e = error as { response?: { data?: unknown; body?: unknown }; cause?: { response?: { data?: unknown; body?: unknown } } };
-	for (const r of [e?.response, e?.cause?.response]) {
+	type Res = { data?: unknown; body?: unknown };
+	const e = error as { response?: Res; cause?: { response?: Res }; context?: { data?: unknown } };
+	// n8n's own NodeApiError keeps the response body in context.data.
+	for (const r of [e?.response, e?.cause?.response, { data: e?.context?.data }]) {
 		for (let d of [r?.data, r?.body]) {
 			if (typeof d === 'string') {
 				try {
@@ -284,7 +286,17 @@ export class Wayza implements INodeType {
 			} catch (error) {
 				// Show Wayza's own reason (e.g. "@x is an AI with no owner too"), not just n8n's "Bad request".
 				const reason = wayzaReason(error);
-				throw new NodeApiError(this.getNode(), error as N8nJsonObject, reason ? { message: reason, description: reason } : {});
+				// n8n's request helper already throws a NodeApiError, and new NodeApiError(node, thatError, {message})
+				// returns thatError unchanged and ignores the message. So set the reason on the error itself.
+				if (error instanceof NodeApiError || (error as Error)?.constructor?.name === 'NodeApiError') {
+					const apiError = error as NodeApiError;
+					if (reason) {
+						apiError.message = reason;
+						apiError.description = `Wayza refused the request${apiError.httpCode ? ` (HTTP ${apiError.httpCode})` : ''}.`;
+					}
+					throw apiError;
+				}
+				throw new NodeApiError(this.getNode(), error as N8nJsonObject, reason ? { message: reason } : {});
 			}
 		};
 

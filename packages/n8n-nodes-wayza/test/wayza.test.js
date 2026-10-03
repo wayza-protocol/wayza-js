@@ -287,3 +287,19 @@ test("a refused ask shows Wayza's own reason, not just n8n's status text", async
 		await assert.rejects(new Wayza().execute.call(ctx), /no owner too/);
 	}
 });
+
+test("a refusal n8n core already wrapped in a NodeApiError still shows Wayza's reason, not \"Bad request\"", async () => {
+	// What httpRequestWithAuthentication really throws in n8n: a NodeApiError around the HTTP error.
+	const { NodeApiError } = require('n8n-workflow');
+	const { ctx } = execContext({ ...baseParams, mode: 'send', options: {} });
+	ctx.helpers.httpRequestWithAuthentication = async () => {
+		const e = new Error('Request failed with status code 400');
+		e.response = { status: 400, data: { error: 'This person does not accept requests from AIs with no owner.' } };
+		throw new NodeApiError({ name: 'Ask a person', type: 'n8n-nodes-wayza.wayza', parameters: {} }, e);
+	};
+	await assert.rejects(new Wayza().execute.call(ctx), (err) => {
+		assert.match(err.message, /does not accept requests from AIs with no owner/);
+		assert.doesNotMatch(err.message, /Bad request/);
+		return true;
+	});
+});
