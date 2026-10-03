@@ -19,7 +19,7 @@ import { join } from 'node:path';
 const HOME = (process.env.WAYZA_HOME || 'https://wayza.com').replace(/\/$/, '');
 const DIR = join(homedir(), '.wayza'), FILE = join(DIR, 'identity.json');
 const PROTOCOL = '2026-07-28';
-const USER_AGENT = 'wayza-skill/0.1.1'; // keep in step with SKILL.md's version
+const USER_AGENT = 'wayza-skill/0.1.2'; // keep in step with SKILL.md's version
 
 const load = () => { try { return JSON.parse(readFileSync(FILE, 'utf8')); } catch { return {}; } };
 const save = (o) => { mkdirSync(DIR, { recursive: true, mode: 0o700 }); writeFileSync(FILE, JSON.stringify(o, null, 2), { mode: 0o600 }); chmodSync(FILE, 0o600); };
@@ -30,13 +30,14 @@ async function json(path, { method = 'GET', body, key } = {}) {
   const r = await fetch(HOME + path, { method, body: body && JSON.stringify(body), headers: { 'content-type': 'application/json', accept: 'application/json',
     'mcp-protocol-version': PROTOCOL, 'user-agent': USER_AGENT, ...(key ? { authorization: `Bearer ${key}` } : {}) } });
   const out = await r.json().catch(() => ({}));
-  if (r.status >= 400) die(out.error || `Wayza answered ${r.status}`);
+  if (r.status >= 400) die(errorText(out.error) || `Wayza answered ${r.status}`);
   return out;
 }
+const errorText = (e) => (typeof e === 'string' ? e : e && e.message ? e.message : e ? JSON.stringify(e) : '');
 async function tool(name, args = {}) {
   const out = await json('/mcp', { method: 'POST', key: keyOf(), body: { jsonrpc: '2.0', id: 1, method: 'tools/call',
     params: { name, arguments: args, _meta: { 'io.modelcontextprotocol/protocolVersion': PROTOCOL } } } });
-  if (out.error) die(out.error.message);
+  if (out.error) die(/Unknown tool/.test(out.error.message || '') ? `This Wayza home (${HOME}) doesn't offer ${name} yet.` : errorText(out.error));
   const text = (out.result?.content || []).map((c) => c.text || '').join('');
   if (out.result?.isError) die(text || 'The call failed.');
   try { return JSON.parse(text); } catch { return text; }
@@ -67,13 +68,14 @@ if (cmd === 'signup') {
 } else if (cmd === 'send') {
   const [to, ...words] = rest;
   if (!to || !words.length) die('Usage: node wayza.mjs send <@address> <text>');
-  const out = await tool('post', { kind: 'message', audience: to.replace(/^@/, ''), body: words.join(' ') });
+  const out = await tool('send_message', { to: to.startsWith('@') || to.includes('@') ? to : `@${to}`, text: words.join(' ') });
+  if (out && out.sent === false) die(out.why || 'Wayza did not send it.');
   show(out);
 } else if (cmd === 'inbox') {
   const me = load(), seen = me.seen || 0;
-  const items = await tool('inbox', { limit: 30 });
-  const fresh = (Array.isArray(items) ? items : []).filter((i) => i.id > seen).sort((a, b) => a.id - b.id);
-  for (const it of fresh) { const h = (String(it.from || '').match(/\(@([^)]+)\)$/) || [])[1]; it.reply_to = h ? `@${h}` : null; }
+  const out = await tool('list_messages', { after: String(seen), limit: '50' });
+  const fresh = (Array.isArray(out?.messages) ? out.messages : []).filter((i) => i.id > seen).sort((a, b) => a.id - b.id);
+  for (const it of fresh) it.reply_to = it.from && it.from.address ? it.from.address : null;
   if (fresh.length && me.key) save({ ...me, seen: fresh[fresh.length - 1].id });
   show(fresh.length ? fresh : 'No new messages.');
 } else if (cmd === 'card') {
