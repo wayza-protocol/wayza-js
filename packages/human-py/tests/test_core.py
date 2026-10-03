@@ -74,6 +74,17 @@ class CoreTests(unittest.TestCase):
     def wz(self, key="fam_bot", **kw):
         return Wayza(key, self.home.home, insecure=True, **kw)
 
+    def test_verifies_answers_by_default_when_it_can(self):
+        from wayza_human._client import _can_verify
+        self.assertEqual(self.wz().verify_answers, _can_verify())
+        self.assertFalse(self.wz(verify_answers=False).verify_answers)
+
+    def test_inbox_leaves_out_asks_for_the_person(self):
+        wz = self.wz()
+        wz.list_approvals = lambda: {"waiting_for_your_person": [{"id": 1, "addressed_to": "you"}, {"id": 2, "addressed_to": "your_person"}, {"id": 3}]}
+        self.assertEqual([a["id"] for a in wz.inbox()], [1, 3])
+        self.assertEqual([a["id"] for a in wz.inbox(for_person=True)], [1, 2, 3])
+
     def test_http_home_needs_insecure(self):
         with self.assertRaises(ValueError):
             Wayza("k", self.home.home)
@@ -201,7 +212,7 @@ class CoreTests(unittest.TestCase):
         got = asker.get(r.id)
         self.assertEqual(got.choice, "Yes")
         self.assertEqual(got.as_, "ai-unclaimed")
-        sent = self.home.requests[-2]
+        sent = [x for x in self.home.requests if x[1].endswith("/reply")][-1]
         self.assertEqual(sent[1], f"/wayza/v0/approvals/{r.id}/reply")
         self.assertEqual(sent[2], {"decision": "answered", "choice": "Yes"})
         with self.assertRaises(ValueError):

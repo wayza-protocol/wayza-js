@@ -191,6 +191,19 @@ test('handleCallback: Request, {body} string, and a real callback POST', async (
   assert.deepEqual([r3.status, r3.choice, r3.as], ['answered', 'B', 'ai-on-behalf']);
 });
 
+test('inbox: asks for the agent\'s person stay out unless asked for, and are answered on their behalf', async () => {
+  const forPerson = await wayza.ask({ to: '@me', title: 'Approve the invoice?' });
+  assert.ok(!(await wayza.inbox()).some((a) => a.id === forPerson.id));
+  const all = await wayza.inbox({ forPerson: true });
+  const item = all.find((a) => a.id === forPerson.id);
+  assert.equal(item.addressed_to, 'your_person');
+  const calls = [];
+  const fake = { reply: (id) => calls.push(['reply', id]), decide: (id) => calls.push(['decide', id]) };
+  await askAsTool(item, { wayza: fake }).execute({ decision: 'approved' });
+  assert.deepEqual(calls, [['decide', forPerson.id]]);
+  await wayza.cancel(forPerson.id);
+});
+
 test('agent to agent: inbox, reply as the agent, and askAsTool', async () => {
   const asked = await wayza.ask({ to: ME, title: 'Can you take this booking?', choices: ['Yes', 'No'], freeText: true });
   const other = await wayza.ask({ to: 'x@y.z', title: 'Not for me' });

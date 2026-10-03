@@ -45,7 +45,7 @@ pip install wayza-human            # core
 pip install 'wayza-human[verify]'  # + signature verification (recommended)
 ```
 
-Until it is on PyPI, install from this repo: `pip install './packages/human-py[verify]'`.
+To try changes from this repo: `pip install './packages/human-py[verify]'`.
 
 ## The core
 
@@ -121,7 +121,7 @@ It requires https unless you pass `insecure=True` (for local or dev homes on
 verifying. In expired or cancelled records, people who never answered appear with
 `decision: "waiting"`.
 
-`Wayza(verify_answers=True)` also verifies the signed answers you get by polling.
+With `wayza-human[verify]` installed, the signed answers you get by polling are verified too (`verify_answers` defaults to on when it can; pass `False` to turn it off).
 
 ### Tie each answer to the ask you sent
 

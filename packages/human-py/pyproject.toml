@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wayza-human"
-version = "0.1.0"
+version = "0.1.1"
 description = "Send an agent's pause-for-approval to a real person through Wayza and resume on their signed answer."
 readme = "README.md"
 authors = [{ name = "Wayza", email = "support@wayza.com" }]

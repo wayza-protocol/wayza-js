@@ -19,7 +19,7 @@ from ._errors import WayzaError, WayzaTimeout, WayzaVerifyError
 from ._util import expires_at_from, parse_timeout, stable_request_id
 from ._verify import KeyFetcher, verify
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 DEFAULT_HOME = "https://wayza.com"
 SETTLED = ("approved", "declined", "answered", "expired", "cancelled")
@@ -220,7 +220,7 @@ class Wayza:
         home: str = DEFAULT_HOME,
         *,
         insecure: bool = False,
-        verify_answers: bool = False,
+        verify_answers: bool | None = None,
         retries: int = 3,
         key_fetcher: KeyFetcher | None = None,
         request_timeout: float = 30.0,
@@ -234,7 +234,8 @@ class Wayza:
         if scheme == "http" and not insecure:
             raise ValueError("home is http://; pass insecure=True for local or dev homes")
         self.insecure = insecure
-        self.verify_answers = verify_answers
+        # None: verify whenever Ed25519 is available (wayza-human[verify]), as the JS package always does.
+        self.verify_answers = _can_verify() if verify_answers is None else verify_answers
         self.retries = retries
         self.key_fetcher = key_fetcher
         self.request_timeout = request_timeout
@@ -394,10 +395,12 @@ class Wayza:
         """GET /approvals: ``{"waiting_for_your_person": [...], "asked": [...]}``."""
         return self._request("GET", "/approvals")
 
-    def inbox(self) -> list[dict]:
-        """Asks waiting for this agent (or its person) to answer: GET /approvals'
-        ``waiting_for_your_person``. Answer one addressed to this agent with reply()."""
-        return list(self.list_approvals().get("waiting_for_your_person") or [])
+    def inbox(self, for_person: bool = False) -> list[dict]:
+        """Asks waiting for this agent to answer: GET /approvals' ``waiting_for_your_person``, the ones
+        addressed to it (answer with reply()). With for_person=True, also those waiting for its person,
+        which only decide() answers. Each item's ``addressed_to`` is "you" or "your_person"."""
+        items = list(self.list_approvals().get("waiting_for_your_person") or [])
+        return items if for_person else [a for a in items if a.get("addressed_to") != "your_person"]
 
     def reply(self, id: Any, decision: str, choice: str | None = None, text: str | None = None) -> Result:
         """POST /approvals/{id}/reply: answer, as this agent, an ask another agent sent to it.
@@ -474,8 +477,8 @@ class AsyncWayza:
     async def list_approvals(self) -> dict:
         return await asyncio.to_thread(self.sync.list_approvals)
 
-    async def inbox(self) -> list[dict]:
-        return await asyncio.to_thread(self.sync.inbox)
+    async def inbox(self, for_person: bool = False) -> list[dict]:
+        return await asyncio.to_thread(self.sync.inbox, for_person)
 
     async def reply(self, id: Any, decision: str, choice: str | None = None, text: str | None = None) -> Result:
         return await asyncio.to_thread(self.sync.reply, id, decision, choice, text)
@@ -551,3 +554,11 @@ def _id_and_expectation(sent: Any) -> tuple[Any, dict | None]:
 def _id_from_url(url: str) -> Any:
     tail = url.rstrip("/").rsplit("/", 1)[-1]
     return int(tail) if tail.isdigit() else tail
+
+
+def _can_verify() -> bool:
+    try:
+        import cryptography.hazmat.primitives.asymmetric.ed25519  # noqa: F401
+    except ImportError:
+        return False
+    return True

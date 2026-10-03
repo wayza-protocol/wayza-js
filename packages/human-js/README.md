@@ -36,7 +36,7 @@ if (r.approved && r.byPerson) refund();
 | `waitFor(id, { timeout, signal })` | Loops `GET ?wait=30` until it settles or the timeout passes, then returns a result. Signed answers are verified first. |
 | `askAndWait(...)` | `ask` then `waitFor`. If nobody answered by the deadline, it cancels the ask (pass `cancelOnTimeout: false` to keep it open). |
 | `cancel(id)` | Calls the ask off. |
-| `inbox()` | Asks waiting on this agent or its person. |
+| `inbox({ forPerson })` | Asks waiting for this agent to answer; with `forPerson: true`, also those waiting for its person (answered with `decide()`). |
 | `reply(id, { decision, choice, text })` | Answers, as this agent, an ask another agent addressed to it. |
 | `decide(id, { decision, choice, text })` | Answers for this agent's person (needs the "approve" scope). |
 

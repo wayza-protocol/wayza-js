@@ -5,6 +5,8 @@ import { canonical, requestFingerprint } from '../src/index.js';
 export const KEY = 'fam_test_key';
 /** The address of the agent that owns KEY. */
 export const ME = '@ai-me';
+/** The address of the agent's person: asks to them wait for the person, not the agent. */
+export const PERSON = '@me';
 
 export async function startMock() {
   const { privateKey, publicKey } = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
@@ -60,8 +62,8 @@ export async function startMock() {
     if (!m) return send(404, { error: 'unknown' });
 
     if (req.method === 'GET' && !m[1]) {
-      const mine = [...approvals.values()].filter((a) => a.status === 'waiting' && a.people.some((p) => p.to === ME));
-      return send(200, { waiting_for_your_person: mine.map(view), asked: [] });
+      const mine = [...approvals.values()].filter((a) => a.status === 'waiting' && a.people.some((p) => p.to === ME || p.to === PERSON));
+      return send(200, { waiting_for_your_person: mine.map((a) => ({ ...view(a), addressed_to: a.people.some((p) => p.to === ME) ? 'you' : 'your_person' })), asked: [] });
     }
     if (req.method === 'POST' && m[2]) {
       const a = approvals.get(Number(m[1]));

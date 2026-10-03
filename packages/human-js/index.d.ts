@@ -116,7 +116,7 @@ export class Wayza {
   waitFor(id: number | string | Approval, opts?: { timeout?: Duration; signal?: AbortSignal }): Promise<Result>;
   askAndWait(opts: AskAndWaitOptions): Promise<Result>;
   /** Asks waiting on this agent or its person (GET /approvals -> waiting_for_your_person). */
-  inbox(): Promise<Approval[]>;
+  inbox(opts?: { forPerson?: boolean }): Promise<Approval[]>;
   /** Answer, as this agent, an ask addressed to it by another agent. */
   reply(id: number | string | { id: number | string }, answer: ReplyOptions): Promise<Approval>;
   /** Answer for this agent's person (needs the "approve" scope). */

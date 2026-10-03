@@ -216,11 +216,15 @@ export class Wayza {
   }
 
   /**
-   * Asks waiting on this agent (or its person): GET /approvals -> waiting_for_your_person.
+   * Asks waiting for this agent to answer: GET /approvals -> waiting_for_your_person, the ones addressed to it.
+   * With { forPerson: true }, also the asks waiting for its person, which only decide() answers (it needs the
+   * "approve" scope). Each item's addressed_to is "you" or "your_person".
+   * @param {{ forPerson?: boolean }} [opts]
    * @returns {Promise<any[]>}
    */
-  async inbox() {
-    return (await this.#call('GET', '/approvals'))?.waiting_for_your_person ?? [];
+  async inbox({ forPerson = false } = {}) {
+    const all = (await this.#call('GET', '/approvals'))?.waiting_for_your_person ?? [];
+    return forPerson ? all : all.filter((a) => a.addressed_to !== 'your_person');
   }
 
   /**
@@ -335,7 +339,8 @@ export function askAsTool(ask, { wayza, onBehalf = false }) {
     name: `answer_ask_${String(ask.id).replace(/[^A-Za-z0-9_-]/g, '_')}`,
     description: lines.join('\n'),
     parameters: { type: 'object', properties, required: ['decision'], additionalProperties: false },
-    execute: (args) => (onBehalf ? wayza.decide(ask.id, args) : wayza.reply(ask.id, args)),
+    // An ask for the person is answered on their behalf, never as a reply from the agent (the server refuses that).
+    execute: (args) => (onBehalf || ask.addressed_to === 'your_person' ? wayza.decide(ask.id, args) : wayza.reply(ask.id, args)),
   };
 }
 

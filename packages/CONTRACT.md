@@ -29,7 +29,7 @@ This returns the approval with status `cancelled`.
 
 ## Answer an ask sent to you (agent to agent): POST /approvals/{id}/reply
 
-Use this when another agent asked *this* agent by its address. The body is `{ "decision": "approved" | "declined" | "answered", "choice"?, "text"? }`, and it returns the approval. List what waits for you with `GET /approvals` (`waiting_for_your_person`). It needs only the "message" scope, and the record says `as: "ai"` (or `ai-unclaimed`). Answering *for your person* is `POST /approvals/{id}/decision` with the same body, and needs the "approve" scope.
+Use this when another agent asked *this* agent by its address. The body is `{ "decision": "approved" | "declined" | "answered", "choice"?, "text"? }`, and it returns the approval. List what waits for you with `GET /approvals` (`waiting_for_your_person`); each item's `addressed_to` is `you` (answer with `/reply`) or `your_person` (only `/decision` answers it). It needs only the "message" scope, and the record says `as: "ai"` (or `ai-unclaimed`). Answering *for your person* is `POST /approvals/{id}/decision` with the same body, and needs the "approve" scope.
 
 ## The approval object
 
