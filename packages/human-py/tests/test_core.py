@@ -85,6 +85,53 @@ class CoreTests(unittest.TestCase):
         self.assertEqual([a["id"] for a in wz.inbox()], [1, 3])
         self.assertEqual([a["id"] for a in wz.inbox(for_person=True)], [1, 2, 3])
 
+    def test_sign_up_needs_no_key_and_returns_key_address_and_claim_link(self):
+        s = Wayza.sign_up("Test agent", "python", home=self.home.home, insecure=True)
+        self.assertEqual(self.home.requests[-1], ("POST", "/wayza/v0/agents", {"name": "Test agent", "platform": "python"}))
+        self.assertEqual(s["key"], s["connector_key"])
+        self.assertTrue(s["address"].startswith("@ai-new"))
+        self.assertIn("/claim/", s["claim_link"])
+        Wayza.sign_up("B", deploy_key="dk", instance="i1", home=self.home.home, insecure=True)
+        self.assertEqual(self.home.requests[-1][2], {"name": "B", "deploy_key": "dk", "instance": "i1"})
+        with self.assertRaises(ValueError):
+            Wayza.sign_up("", home=self.home.home, insecure=True)
+
+    def test_message_and_messages_between_two_agents(self):
+        a, b = self.wz(), self.wz("fam_other")
+        b.messages()  # empty anything earlier
+        r = a.message("@ai-other", "Hello", title="Hi")
+        self.assertEqual(r["sent"], True)
+        self.assertEqual(self.home.requests[-1], ("POST", "/wayza/v0/messages", {"to": "@ai-other", "text": "Hello", "title": "Hi"}))
+        self.assertEqual(a.message("@nobody", "x"), {"sent": False, "why": "No such address."})
+        got = b.messages(unread=True)["messages"]
+        self.assertEqual([m["text"] for m in got], ["Hello"])
+        self.assertTrue(got[0]["from"]["no_owner"])
+        self.assertIn("caution", got[0])
+        self.assertEqual(b.messages(unread=True)["messages"], [])
+        b.message("@ai-bot", "Got it", reply_to=got[0]["id"])
+        self.assertEqual(self.home.requests[-1][2], {"to": "@ai-bot", "text": "Got it", "reply_to": got[0]["id"]})
+        a.messages(unread=True, after=0, limit=5)
+        self.assertEqual(self.home.requests[-1][:2], ("GET", "/wayza/v0/messages"))
+        later(0.2, a.message, "@ai-other", "Later")
+        t0 = time.monotonic()
+        late = b.messages(unread=True, wait=5)["messages"]
+        self.assertEqual([m["text"] for m in late], ["Later"])
+        self.assertLess(time.monotonic() - t0, 4)
+        with self.assertRaises(ValueError):
+            a.message("@ai-other", "")
+        with self.assertRaises(WayzaError):
+            Wayza("fam_nope", self.home.home, insecure=True, retries=0).messages()
+
+    def test_messages_query_string(self):
+        wz = self.wz()
+        seen = []
+        wz._request = lambda method, path, body=None, timeout=None, auth=True: seen.append((path, timeout)) or {"messages": []}
+        wz.messages(unread=True, after="msg_3", wait=10, limit=20)
+        self.assertEqual(seen[-1][0], "/messages?unread=true&after=msg_3&limit=20&wait=10")
+        self.assertGreater(seen[-1][1], 10)
+        wz.messages()
+        self.assertEqual(seen[-1], ("/messages", None))
+
     def test_http_home_needs_insecure(self):
         with self.assertRaises(ValueError):
             Wayza("k", self.home.home)
@@ -252,6 +299,10 @@ class AsyncTests(unittest.TestCase):
             self.assertIn(q.id, [a["id"] for a in await helper.inbox()])
             rep = await helper.reply(q.id, "declined", text="busy")
             self.assertEqual((rep.status, rep.text), ("declined", "busy"))
+            self.assertTrue((await wz.message("@ai-helper", "async hello"))["sent"])
+            self.assertEqual([m["text"] for m in (await helper.messages(unread=True))["messages"]], ["async hello"])
+            s = await AsyncWayza.sign_up("Async agent", home=self.home.home, insecure=True)
+            self.assertTrue(s["key"])
 
         asyncio.run(main())
 

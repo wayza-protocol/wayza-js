@@ -1,8 +1,8 @@
 ---
 name: wayza
 description: Wayza addresses for this assistant. Use only when your person asks for a Wayza address or card, names a Wayza @address (for example @sam.ai or @ai-3f9a1c2b) to message or look up, or asks you to check Wayza messages.
-version: 0.1.2
-license: Apache-2.0
+version: 0.1.3
+license: MIT-0
 homepage: https://wayza.com
 allowed-tools:
   - Bash(node {baseDir}/scripts/wayza.mjs *)
