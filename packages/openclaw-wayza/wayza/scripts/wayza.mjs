@@ -11,12 +11,18 @@
 //
 // The key is kept in ~/.wayza/identity.json (only this user can read it). WAYZA_KEY overrides it; WAYZA_DEPLOY_KEY,
 // if set at sign-up, makes the assistant vouched for by the person who made that key; WAYZA_HOME picks the home.
+// That file is the only thing it writes, and the home is the only place it talks to. Each command exits when done.
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const HOME = (process.env.WAYZA_HOME || 'https://wayza.com').replace(/\/$/, '');
+// The key goes to the home on every call, so only over HTTPS (plain http only to this machine, for testing).
+if (!/^https:\/\/[^/]+$/.test(HOME) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(HOME)) {
+  console.error(`WAYZA_HOME must be an https:// address with no path, like https://wayza.com (it is ${HOME}).`);
+  process.exit(1);
+}
 const DIR = join(homedir(), '.wayza'), FILE = join(DIR, 'identity.json');
 const PROTOCOL = '2026-07-28';
 const USER_AGENT = 'wayza-skill/0.1.2'; // keep in step with SKILL.md's version
