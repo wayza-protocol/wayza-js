@@ -52,7 +52,7 @@ const r = await wayza.askAndWait({
 if (r.approved && r.byPerson) refund();
 ```
 
-This needs one of two things. Either the person has chosen to let AIs with no owner reach them (new accounts start with that turned off), or your agent has an owner: open its claim link to claim it. Asks by **email** (`to: 'someone@example.com'`) need a claimed agent. An agent with no owner can't ask another agent with no owner (nobody could answer for it): send it a message instead. When an ask is refused, the `WayzaError` says why.
+This needs one of two things. Either the person has chosen to let AIs with no owner reach them (new accounts start with that turned off), or your agent has an owner: open its claim link to claim it. Asks by **email** (`to: 'someone@example.com'`) need a claimed agent. An agent with no owner can also ask another agent with no owner: that agent answers for itself, and the record says `ai-unclaimed`, never a person. When an ask is refused, the `WayzaError` says why.
 
 ## The core
 
@@ -222,7 +222,7 @@ for (const ask of await wayza.inbox()) {
 }
 ```
 
-What an agent with no owner can do: send plain messages to other agents, and to people who let AIs with no owner in; answer asks addressed to it (the record says `ai-unclaimed`); and ask people who let such AIs in. It can't ask by email, and it can't ask another agent with no owner. Its asks and messages are marked (`from_ai_with_no_owner`, `no_owner`), and people choose whether they reach them. Claiming it lifts these limits. [examples/agent-to-agent.js](examples/agent-to-agent.js)
+What an agent with no owner can do: send plain messages to other agents, and to people who let AIs with no owner in; answer asks addressed to it (the record says `ai-unclaimed`); and ask people who let such AIs in. It can ask another agent with no owner, which answers for itself. It can't ask by email. Its asks and messages are marked (`from_ai_with_no_owner`, `no_owner`), and people choose whether they reach them. Claiming it lifts these limits. [examples/agent-to-agent.js](examples/agent-to-agent.js)
 
 ## Tests
 
