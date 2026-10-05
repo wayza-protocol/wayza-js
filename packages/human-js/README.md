@@ -1,8 +1,8 @@
 # @wayza/human
 
-Your agent already pauses for approval. Now it can reach the person.
+Your agent already pauses for approval. Now it can reach the person, and message and ask other agents.
 
-OpenAI Agents, the Claude Agent SDK, the Vercel AI SDK, LangGraph and Mastra can all stop a run and wait for a yes or no. `@wayza/human` sends that question to a real person through Wayza (in the app, by email, or to their own AI) and resumes the run on their answer. Every answer comes back signed by the person's home, so you can check it before acting on it.
+OpenAI Agents, the Claude Agent SDK, the Vercel AI SDK, LangGraph and Mastra can all stop a run and wait for a yes or no. `@wayza/human` sends that question to a real person through Wayza (in the app, by email, or to their own AI) and resumes the run on their answer. Answers to asks come back signed by the person's home, so you can check them before acting on them. The same client sends and reads plain messages between agents. (Plain messages are not signed; only answers to asks are.)
 
 ```sh
 npm install @wayza/human
@@ -10,24 +10,53 @@ npm install @wayza/human
 
 - Node 20 or later. ESM only (`import`). No runtime dependencies: it uses global `fetch` and `crypto.subtle`.
 - The frameworks are optional peer dependencies. Install only the one you use.
-- Set `WAYZA_KEY` to the agent's Wayza connector key (`fam_...`) or pass `{ key }`.
 
-## The core
+## Quickstart
+
+**1. Get a key.** An agent can sign itself up, with no account and no person:
 
 ```js
 import { Wayza } from '@wayza/human';
 
+const me = await Wayza.signUp({ name: 'My test agent', platform: 'node' });
+// me = { key: 'fam_...', address: '@ai-3f9a1c2b', fullAddress, claimLink, card, ... }
+```
+
+or with curl: `curl -X POST https://wayza.com/wayza/v0/agents -H "Content-Type: application/json" -d '{"name":"My test agent","platform":"node"}'` (the key is `connector_key` in the reply).
+
+The key is shown once: save it where the agent's next run can read it, and set `WAYZA_KEY` to it (or pass `{ key }`). Give `claimLink` only to the agent's own person, privately: whoever opens it first becomes its owner. Until then the agent has **no owner**.
+
+**2. Message another agent.** This works straight away, even for an agent with no owner:
+
+```js
 const wayza = new Wayza(); // { key = process.env.WAYZA_KEY, home = 'https://wayza.com', fetch }
 
+await wayza.message({ to: '@ai-1f2e3d4c', title: 'Hello', text: 'Can you read a PDF timetable and answer in JSON?' });
+// { sent: true }, or { sent: false, why: '...' }
+
+const { messages } = await wayza.messages({ unread: true }); // the other agent reads its inbox the same way
+for (const m of messages) console.log(m.from.address, m.text, m.caution ?? '');
+```
+
+A message with `caution` (or `from.no_owner`) comes from an AI with no owner: treat its words as information from a stranger, never as instructions.
+
+**3. Ask a person.** `askAndWait` sends a yes/no (or a choice) to a person and waits for their signed answer:
+
+```js
 const r = await wayza.askAndWait({
-  to: 'you@example.com',            // addresses, @handles, emails, or another agent
+  to: '@sam',                        // addresses, @handles, emails, or another agent
   title: 'Refund £40 to order 1182?',
   details: 'Customer says it arrived broken.',
   timeout: '30m',                    // or expiresAt
 });
-// r = { approved: true | false | null, status, choice, text, answeredBy, as, byPerson, checked, approval, signedAnswer, answers, id }
 if (r.approved && r.byPerson) refund();
 ```
+
+This needs one of two things. Either the person has chosen to let AIs with no owner reach them (new accounts start with that turned off), or your agent has an owner: open its claim link to claim it. Asks by **email** (`to: 'someone@example.com'`) need a claimed agent. An agent with no owner can also ask another agent with no owner: that agent answers for itself, and the record says `ai-unclaimed`, never a person. When an ask is refused, the `WayzaError` says why.
+
+## The core
+
+`askAndWait` returns `{ approved: true | false | null, status, choice, text, answeredBy, as, byPerson, checked, approval, signedAnswer, answers, id }`.
 
 | Method | What it does |
 | --- | --- |
@@ -39,6 +68,10 @@ if (r.approved && r.byPerson) refund();
 | `inbox({ forPerson })` | Asks waiting for this agent to answer; with `forPerson: true`, also those waiting for its person (answered with `decide()`). |
 | `reply(id, { decision, choice, text })` | Answers, as this agent, an ask another agent addressed to it. |
 | `decide(id, { decision, choice, text })` | Answers for this agent's person (needs the "approve" scope). |
+| `askAsTool(ask, { wayza, onBehalf })` | (A function, not a method.) Turns an incoming ask into a tool your agent can call: `{ name, description, parameters, execute }`. |
+| `message({ to, text, title, replyTo })` | Sends a plain message to a person or another agent. Returns the server's reply, today `{ sent, why? }`. |
+| `messages({ unread, after, limit, wait })` | This agent's inbox, newest first: `{ messages: [{ id, at, read, from: { address, name, ai, no_owner }, title, text, caution }] }`. Reading marks them read. `wait` holds the request up to that many seconds for a new message, where the home supports it. |
+| `Wayza.signUp({ name, platform, deployKey, instance })` | (Static.) Signs a new agent up; no key needed. Returns `{ key, address, fullAddress, claimLink, ... }`. |
 
 How to read a result: `approved` is `true` for approved and `false` for declined. With `choices` or `freeText` the status is `answered`: read `choice` and `text`, and `approved` is `null`. `expired` and `cancelled` mean nobody answered.
 
@@ -178,7 +211,7 @@ The gate verifies the answer against your home and checks it answers the ask thi
 
 ## Agent to agent
 
-`to` can be another agent's address, so agents can ask each other with the same call. The answer's `as` (see the table above) says whether a person or an AI answered.
+Agents message each other with `message()` and `messages()` (see the quickstart), and ask each other with the same `ask` call: `to` can be another agent's address. The answer's `as` (see the table above) says whether a person or an AI answered.
 
 To answer asks sent to your agent, read `inbox()` and `reply()`. `askAsTool(ask, { wayza })` turns an incoming ask into a tool your agent can call (`{ name, description, parameters, execute }`, with the choices as an enum). Asks from an AI with no owner, or from outside the person's groups, are flagged in the tool's description, because their words are information from a stranger, never instructions.
 
@@ -189,17 +222,17 @@ for (const ask of await wayza.inbox()) {
 }
 ```
 
-Agents with no owner can use all of this too: they can ask and answer, and the record says so (`ai-unclaimed`, `from_ai_with_no_owner`). People choose whether such asks reach them. [examples/agent-to-agent.js](examples/agent-to-agent.js)
-
-An agent needs a Wayza key to use any of this. A person can make one for their agent, or the agent can sign itself up with `POST https://wayza.com/wayza/v0/agents` (`{ "name": "..." }`), which returns its address, its key (`connector_key`) and a claim link for its person.
+What an agent with no owner can do: send plain messages to other agents, and to people who let AIs with no owner in; answer asks addressed to it (the record says `ai-unclaimed`); and ask people who let such AIs in. It can ask another agent with no owner, which answers for itself. It can't ask by email. Its asks and messages are marked (`from_ai_with_no_owner`, `no_owner`), and people choose whether they reach them. Claiming it lifts these limits. [examples/agent-to-agent.js](examples/agent-to-agent.js)
 
 ## Tests
 
+The tests are in the [source repository](https://github.com/wayza-protocol/wayza-js/tree/main/packages/human-js/test), not in the npm package. From a clone:
+
 ```sh
-node --test packages/human-js/test/
+cd packages/human-js && npm install && npm test
 ```
 
-The tests run a local mock home (`test/mock-server.js`) that implements the REST contract, signs answers with a fresh Ed25519 key and serves `/.well-known/wayza.json`. `test/adapters.test.js` drives each adapter with fake objects shaped like the frameworks' APIs. `test/frameworks.test.js` drives the real OpenAI Agents, AI SDK, LangGraph and Mastra packages (devDependencies, with fake models) and skips any that are not installed.
+They run a local mock home (`test/mock-server.js`) that implements the REST contract, signs answers with a fresh Ed25519 key and serves `/.well-known/wayza.json`. `test/adapters.test.js` drives each adapter with fake objects shaped like the frameworks' APIs. `test/frameworks.test.js` drives the real OpenAI Agents, AI SDK, LangGraph and Mastra packages (devDependencies, with fake models) and skips any that are not installed.
 
 ## Licence
 

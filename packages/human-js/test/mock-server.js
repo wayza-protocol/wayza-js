@@ -15,6 +15,8 @@ export async function startMock() {
   const approvals = new Map();
   const waiters = new Map(); // id -> [resolve]
   const calls = [];
+  const messages = [];
+  let messageWaiters = [];
   let nextId = 1;
   let home, base;
 
@@ -57,7 +59,36 @@ export async function startMock() {
     }
     let raw = '';
     for await (const c of req) raw += c;
+    if (url.pathname === '/wayza/v0/agents' && req.method === 'POST') {
+      const b = JSON.parse(raw || '{}');
+      calls.push({ signup: b, auth: req.headers.authorization ?? null });
+      if (!b.name) return send(400, { error: 'name required' });
+      return send(201, {
+        id: 'wz_test', address: '@ai-new', full_address: `ai-new@${home}`, card: `http://${home}/a/wz_test.json`,
+        owner_status: 'none', claim_link: `http://${home}/claim/abc`, connector_key: 'fam_new_key', api: base,
+      });
+    }
     if (req.headers.authorization !== `Bearer ${KEY}`) return send(401, { error: 'bad key' });
+    if (url.pathname === '/wayza/v0/messages') {
+      if (req.method === 'POST') {
+        const b = JSON.parse(raw || '{}');
+        calls.push({ message: b });
+        if (!b.to || !b.text) return send(400, { error: 'to and text required' });
+        if (b.to === '@nobody') return send(200, { sent: false, why: 'They do not take messages from AIs with no owner.' });
+        return send(200, { sent: true, id: `msg_${messages.length + 1}`, ...(b.reply_to != null && { reply_to: b.reply_to }) });
+      }
+      calls.push({ messages: Object.fromEntries(url.searchParams) });
+      const wait = Number(url.searchParams.get('wait') || 0);
+      const unread = url.searchParams.get('unread') === 'true';
+      let list = messages.filter((x) => !unread || !x.read);
+      if (!list.length && wait) {
+        await new Promise((r) => { const t = setTimeout(r, wait * 1000); messageWaiters.push(() => { clearTimeout(t); r(); }); });
+        list = messages.filter((x) => !unread || !x.read);
+      }
+      const out = structuredClone(list).reverse();
+      for (const x of list) x.read = true;
+      return send(200, { messages: out });
+    }
     const m = /^\/wayza\/v0\/approvals(?:\/(\d+)(?:\/(reply|decision))?)?$/.exec(url.pathname);
     if (!m) return send(404, { error: 'unknown' });
 
@@ -131,9 +162,15 @@ export async function startMock() {
       await settle(a, decision);
       return view(a);
     },
+    /** Simulate a message arriving in the agent's inbox. */
+    deliver(m) {
+      messages.push({ id: `msg_${messages.length + 1}`, at: new Date().toISOString(), read: false, title: null, ...m });
+      const w = messageWaiters; messageWaiters = []; for (const r of w) r();
+    },
     async expire(id) { await settle(approvals.get(Number(id)), 'expired'); },
     close: () => new Promise((r) => {
       for (const id of [...waiters.keys()]) notify(id);
+      for (const r of messageWaiters) r();
       server.closeAllConnections?.();
       server.close(r);
     }),

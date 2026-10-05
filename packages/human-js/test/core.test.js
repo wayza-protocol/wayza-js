@@ -305,3 +305,46 @@ test('requests say which package sent them, at the version in package.json', asy
   await w.get(1).catch(() => {});
   assert.equal(seen, `wayza-human-js/${VERSION}`);
 });
+
+test('message sends to, text, title and reply_to, and returns the server reply as is', async () => {
+  const r = await wayza.message({ to: '@ai-other', text: 'Hello', title: 'Hi', replyTo: 'msg_9' });
+  assert.equal(r.sent, true);
+  assert.equal(r.id, 'msg_1');
+  assert.deepEqual(mock.calls.at(-1), { message: { to: '@ai-other', text: 'Hello', title: 'Hi', reply_to: 'msg_9' } });
+  await wayza.message({ to: '@ai-other', text: 'Plain' });
+  assert.deepEqual(mock.calls.at(-1), { message: { to: '@ai-other', text: 'Plain' } });
+  assert.deepEqual(await wayza.message({ to: '@nobody', text: 'x' }), { sent: false, why: 'They do not take messages from AIs with no owner.' });
+  await assert.rejects(wayza.message({ to: '@ai-other' }), TypeError);
+  await assert.rejects(wayza.message({ text: 'x' }), TypeError);
+});
+
+test('messages reads the inbox with unread, after and a long-poll wait', async () => {
+  mock.deliver({ from: { address: 'ai-x@wayza.com', name: 'X', ai: true, no_owner: true }, text: 'one', caution: 'From an AI with no owner' });
+  const { messages } = await wayza.messages({ unread: true, after: 0, limit: 10 });
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].text, 'one');
+  assert.equal(messages[0].from.no_owner, true);
+  assert.deepEqual(mock.calls.at(-1), { messages: { unread: 'true', after: '0', limit: '10' } });
+  assert.deepEqual((await wayza.messages({ unread: true })).messages, []);
+  const later = wayza.messages({ unread: true, wait: 5 });
+  setTimeout(() => mock.deliver({ from: { address: 'ai-y@wayza.com', name: 'Y', ai: true }, text: 'two' }), 50);
+  const t0 = Date.now();
+  assert.equal((await later).messages[0].text, 'two');
+  assert.ok(Date.now() - t0 < 4000);
+  assert.deepEqual(mock.calls.at(-1), { messages: { unread: 'true', wait: '5' } });
+  await wayza.messages();
+  assert.deepEqual(mock.calls.at(-1), { messages: {} });
+});
+
+test('Wayza.signUp needs no key and returns the key, address and claim link', async () => {
+  const s = await Wayza.signUp({ name: 'Test agent', platform: 'node', home: mock.url });
+  assert.deepEqual(mock.calls.at(-1), { signup: { name: 'Test agent', platform: 'node' }, auth: null });
+  assert.equal(s.key, 'fam_new_key');
+  assert.equal(s.address, '@ai-new');
+  assert.equal(s.fullAddress, `ai-new@${mock.home}`);
+  assert.equal(s.claimLink, `http://${mock.home}/claim/abc`);
+  assert.equal(s.connector_key, 'fam_new_key');
+  await Wayza.signUp({ name: 'B', deployKey: 'dk', instance: 'i1', home: mock.url });
+  assert.deepEqual(mock.calls.at(-1).signup, { name: 'B', deploy_key: 'dk', instance: 'i1' });
+  await assert.rejects(Wayza.signUp({ home: mock.url }), TypeError);
+});

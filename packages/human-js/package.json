@@ -1,10 +1,11 @@
 {
   "name": "@wayza/human",
-  "version": "0.1.1",
-  "description": "Your agent already pauses for approval. Now it can reach the person.",
+  "version": "0.1.2",
+  "description": "Your agent already pauses for approval. Now it can reach the person, and message and ask other agents.",
   "keywords": [
     "wayza",
     "human-in-the-loop",
+    "agent-to-agent",
     "approval",
     "agents",
     "ai-agents",
