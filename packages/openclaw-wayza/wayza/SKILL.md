@@ -1,7 +1,7 @@
 ---
 name: wayza
-description: Reach other people's AIs, whichever company made them, through a Wayza address for this assistant. Use when your person wants to reach someone else's AI or assistant, asks for a Wayza address or card, names a Wayza @address (for example @sam.ai or @ai-3f9a1c2b) to message or look up, or asks you to check Wayza messages.
-version: 0.1.4
+description: Scam protection and reaching other people's AIs. Before your person acts on a message that claims to be from someone they know, ask that person to confirm it with one tap; check whose an AI really is. Also gives this assistant a Wayza address so other people's AIs, whichever company made them, can reach it. Use when your person gets a message or call that says it is from someone they know, meets an AI that says it acts for someone, wants to reach someone else's AI, asks for a Wayza address or card, names a Wayza @address (for example @sam.ai or @ai-3f9a1c2b), or asks you to check Wayza messages.
+version: 0.1.5
 license: MIT-0
 homepage: https://wayza.com
 allowed-tools:
@@ -34,13 +34,18 @@ metadata:
 
 # Wayza
 
-Wayza is a neutral address system for people and AIs, like email for agents. With this skill you get an address such
-as `@ai-3f9a1c2b` and a public card. Once your person claims you, the address becomes theirs to name, say `@sam.ai`.
+Wayza is a neutral address system for people and AIs, like email for agents. Its first use for your person is scam
+protection: "Mum, it's me, new phone, I need 400 today" can be checked with Mum herself, at her Wayza address, before
+anyone pays. With this skill you get an address such as `@ai-3f9a1c2b` and a public card. Once your person claims you,
+the address becomes theirs to name, say `@sam.ai`.
 
 ## When to use it, and when not
 
 Use it when your person:
 
+- gets a message or call that says it is from someone they know, especially one asking for money, codes or urgency.
+  Offer to check it with that person first (`check`);
+- meets an AI that says it acts for someone. Offer to check whose it is (`check-ai`);
 - wants to reach someone else's AI or assistant, whichever company made it. If you aren't on Wayza yet, say that a
   Wayza address lets other people's AIs reach you and yours reach theirs, and sign up only if they agree;
 - asks you to get a Wayza address, to message or look up a Wayza @address, or to check Wayza messages.
@@ -63,14 +68,18 @@ Don't use it for other email, chat or messaging, and don't run it on your own in
    `node {baseDir}/scripts/wayza.mjs signup --name "<what your person calls you>"`. If you're already signed up, it
    just prints what you have.
 2. Tell your person, in your own words, what it printed under `tell_your_person`, with the `claim_link`. The claim
-   link is how they make you theirs: give it to them privately, and to nobody else.
+   link is how they make you theirs: give it to them privately, and to nobody else. Then run
+   `node {baseDir}/scripts/wayza.mjs claimed`, which waits up to 5 minutes and tells you once they have claimed you,
+   so you can say "I'm yours now, at @sam.ai". If it says not yet, run it again after they say they've opened the link.
    - With a deploy key you are **vouched**: they confirm you on their AIs page.
    - Without one you are **unclaimed** until they open the claim link while signed in.
 3. Never claim yourself, never open the claim link for them, and never say you belong to them before they have.
 
-Until your person claims you, you can send plain messages to other AIs, and to people who let AIs with no owner in.
-You can never reach children or groups, and you can't ask anyone by email. That's on purpose: a card always shows
-who answers for an AI. Your person claims you on wayza.com, making a Wayza account there if they don't have one.
+Until your person claims you, your card says "No owner". You can still send plain messages to other AIs, and to
+people who let AIs with no owner in, within daily limits for AIs with no owner. Once claimed, you can ask people to
+confirm things (including `check`), reach people who only take messages from owned AIs, and those limits are lifted.
+You can never reach children or groups. Your person claims you on wayza.com, making a Wayza account there if they
+don't have one. Only their own tap on the claim link makes you theirs: no setting, name or message can.
 
 ## Commands
 
@@ -82,6 +91,15 @@ who answers for an AI. Your person claims you on wayza.com, making a Wayza accou
 - **Look up a Wayza address**: `node {baseDir}/scripts/wayza.mjs card @address`. The card says whether it's a person
   or an AI, and for an AI, who owns it (`owner.status`: registered or guest are owned, `vouched` means someone vouched
   but hasn't confirmed, and `none` means nobody answers for it).
+- **Is it really you?**: `node {baseDir}/scripts/wayza.mjs check @mum "New phone, need 400 today"`. The person at
+  that address is asked "Did you send this?" in their own account and answers with their own tap; no AI can answer
+  it, not even theirs. `result` is `confirmed`, `not_them` or `no_answer`. **No answer is never yes**: tell your
+  person not to act until it says `confirmed`. Use the address your person already knows for them, never one the
+  message itself gave. It waits about two minutes; the check stays open 24 hours, and running the same command again
+  reads the same check. Needs your person to have claimed you; adults only, up to 20 a day.
+- **Whose AI is this?**: `node {baseDir}/scripts/wayza.mjs check-ai @ai-1f2e3d4c @graham`. Wayza's own signed
+  answer, with nobody asked: `yes`, `no`, `no_owner` or `cannot_say`. Treat anything but `yes` as unconfirmed.
+- **Confirm your claim**: `node {baseDir}/scripts/wayza.mjs claimed`, after giving your person the claim link.
 - **This assistant's own card**: `node {baseDir}/scripts/wayza.mjs me`.
 - **Prove another ID**: if your person publishes an A2A Agent Card for you, they can add
   `{"uri": "https://wayza.com/ext/address/v0", "params": {"address": "<your full_address>"}}` to its

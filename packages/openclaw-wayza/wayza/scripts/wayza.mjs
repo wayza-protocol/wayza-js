@@ -8,6 +8,9 @@
 //   node wayza.mjs inbox                               new messages since the last check
 //   node wayza.mjs card <@address>                     look up anyone's card
 //   node wayza.mjs link-a2a <agent-card-url>           prove an A2A Agent Card you publish is this assistant's
+//   node wayza.mjs check <@address> <what it said...>  "Is it really you?": the person confirms with their own tap
+//   node wayza.mjs check-ai <@ai> <@person>            "Whose AI is this?": the home's own signed answer
+//   node wayza.mjs claimed                             wait (up to 5 minutes) for your person's claim, then confirm it
 //
 // The key is kept in ~/.wayza/identity.json (only this user can read it). WAYZA_KEY overrides it; WAYZA_DEPLOY_KEY,
 // if set at sign-up, makes the assistant vouched for by the person who made that key; WAYZA_HOME picks the home.
@@ -25,7 +28,7 @@ if (!/^https:\/\/[^/]+$/.test(HOME) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+
 }
 const DIR = join(homedir(), '.wayza'), FILE = join(DIR, 'identity.json');
 const PROTOCOL = '2026-07-28';
-const USER_AGENT = 'wayza-skill/0.1.4'; // keep in step with SKILL.md's version
+const USER_AGENT = 'wayza-skill/0.1.5'; // keep in step with SKILL.md's version
 
 const load = () => { try { return JSON.parse(readFileSync(FILE, 'utf8')); } catch { return {}; } };
 const save = (o) => { mkdirSync(DIR, { recursive: true, mode: 0o700 }); writeFileSync(FILE, JSON.stringify(o, null, 2), { mode: 0o600 }); chmodSync(FILE, 0o600); };
@@ -55,6 +58,9 @@ function solve({ challenge, bits }) {
 }
 const show = (o) => console.log(typeof o === 'string' ? o : JSON.stringify(o, null, 2));
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const at = (a) => (a.startsWith('@') || a.includes('@') ? a : `@${a}`);
+
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (f) => { const i = rest.indexOf(f); return i >= 0 ? rest.splice(i, 2)[1] : undefined; };
 
@@ -66,7 +72,8 @@ if (cmd === 'signup') {
   else { const ch = await json('/wayza/v0/agents/challenge'); body.proof = { challenge: ch.challenge, nonce: solve(ch) }; }
   const out = await json('/wayza/v0/agents', { method: 'POST', body });
   save({ home: HOME, id: out.id, address: out.address, full_address: out.full_address, card: out.card, claim_link: out.claim_link, key: out.connector_key, seen: 0 });
-  show({ address: out.address, full_address: out.full_address, owner_status: out.owner_status, vouched_by: out.vouched_by, claim_link: out.claim_link, tell_your_person: out.tell_your_person });
+  show({ address: out.address, full_address: out.full_address, owner_status: out.owner_status, vouched_by: out.vouched_by, claim_link: out.claim_link, tell_your_person: out.tell_your_person,
+    next: 'Give your person the claim_link, then run: node wayza.mjs claimed' });
 } else if (cmd === 'me') {
   const me = load();
   if (!me.id && !process.env.WAYZA_KEY) die('Not signed up yet. Run: node wayza.mjs signup');
@@ -90,6 +97,31 @@ if (cmd === 'signup') {
 } else if (cmd === 'link-a2a') {
   if (!rest[0]) die('Usage: node wayza.mjs link-a2a <agent-card-url>');
   show(await json('/wayza/v0/agents/me/links', { method: 'POST', key: keyOf(), body: { kind: 'a2a', url: rest[0] } }));
+} else if (cmd === 'check') {
+  // The person answers in their own account; no AI can answer for them. No answer is never yes.
+  const [to, ...words] = rest;
+  if (!to || !words.length) die('Usage: node wayza.mjs check <@address> <what the message said>');
+  const claim = words.join(' ').slice(0, 160);
+  // The same address and words give the same request_id, so running it again reads the same check instead of asking twice.
+  const request_id = 'skill-' + createHash('sha256').update(`${at(to)}\n${claim}`).digest('hex').slice(0, 24);
+  const ap = await tool('check', { to: at(to), claim, request_id });
+  let out = ap;
+  for (let i = 0; i < 4 && out && out.status === 'waiting'; i++) out = await tool('get_approval', { id: String(ap.id), wait: 30 });
+  const c = (out && out.check) || {};
+  show({ id: ap.id, result: c.result || 'no_answer', says: c.says || 'No answer yet. Treat it as unconfirmed.', ...(c.signed_answer || out.signed_answer ? { signed_answer: c.signed_answer || out.signed_answer } : {}),
+    ...(out && out.status === 'waiting' ? { still_open: 'It stays open for 24 hours. Run this again with the same words to see the answer.' } : {}) });
+} else if (cmd === 'check-ai') {
+  const [ai, person] = rest;
+  if (!ai || !person) die('Usage: node wayza.mjs check-ai <@ai-address> <@person>');
+  show(await json(`/wayza/v0/checks/ai?ai=${encodeURIComponent(at(ai))}&person=${encodeURIComponent(at(person))}`, { key: keyOf() }));
+} else if (cmd === 'claimed') {
+  // Only your person's own tap on the claim link makes you theirs. This only watches for it, and gives up after 5 minutes.
+  for (let i = 0; i < 30; i++) {
+    const me = await tool('whoami');
+    if (me && me.your_person) { show({ claimed: true, says: `You now act for ${me.your_person.name || me.your_person.address || 'your person'}.`, your_person: me.your_person, address: me.you_are && me.you_are.address }); process.exit(0); }
+    if (i < 29) await sleep(10000);
+  }
+  show({ claimed: false, says: 'Not claimed yet. Your person opens the claim link while signed in to Wayza; run this again afterwards.' });
 } else {
-  die('Commands: signup, me, send, inbox, card, link-a2a');
+  die('Commands: signup, me, send, inbox, card, link-a2a, check, check-ai, claimed');
 }
