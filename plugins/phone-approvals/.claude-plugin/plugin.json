@@ -1,6 +1,6 @@
 {
   "name": "phone-approvals",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Approve Claude Code's permission prompts from your phone. When it stops to ask, the question comes to your phone through Wayza; tap Approve or Decline and it carries on. No answer, and the normal prompt waits on your computer.",
   "author": { "name": "Wayza", "url": "https://wayza.com" },
   "homepage": "https://wayza.com/docs/phone-approvals/",

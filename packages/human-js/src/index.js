@@ -2,7 +2,7 @@
 // REST contract: packages/CONTRACT.md. No runtime dependencies (global fetch + crypto.subtle).
 
 // Keep in step with package.json (a test checks it). Browsers ignore it; servers count it.
-export const VERSION = '0.1.2';
+export const VERSION = '0.1.3';
 const USER_AGENT = `wayza-human-js/${VERSION}`;
 
 const SETTLED = new Set(['approved', 'declined', 'answered', 'expired', 'cancelled']);
