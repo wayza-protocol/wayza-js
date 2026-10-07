@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node ~/.wayza/wayza-approve.mjs hook", "timeout": 600, "statusMessage": "Asking you on your phone" }
+        ]
+      }
+    ]
+  }
+}

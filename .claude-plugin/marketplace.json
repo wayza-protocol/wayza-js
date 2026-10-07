@@ -1,0 +1,11 @@
+{
+  "name": "wayza",
+  "owner": { "name": "Wayza", "url": "https://wayza.com" },
+  "plugins": [
+    {
+      "name": "phone-approvals",
+      "source": "./plugins/phone-approvals",
+      "description": "Approve Claude Code's permission prompts from your phone, through Wayza."
+    }
+  ]
+}

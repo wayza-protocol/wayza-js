@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/wayza-approve.mjs\" hook", "timeout": 600 }
+        ]
+      }
+    ]
+  }
+}
