@@ -1,5 +1,5 @@
 // Shared plumbing for the framework adapters. Not a public entry point.
-import { Wayza, toResult, isSettled, canonical, checkAnswer, verify, PERSON } from './index.js';
+import { Wayza, toResult, isSettled, canonical, checkAnswer, verify } from './index.js';
 
 const ASK_KEYS = ['to', 'details', 'choices', 'freeText', 'needs', 'expiresAt', 'timeout', 'callback'];
 
@@ -79,12 +79,16 @@ export function plain(result) {
  * asked by this agent, about this question. `p` is a pending entry ({ id, request, asked_by }).
  */
 export async function checked(opts, p, r) {
-  if (r.status === 'waiting') return r;
-  if (!r.signedAnswer) throw new Error(`Wayza answer for approval ${p.id} has no signed record`);
+  // Only the signed record counts: every field an adapter acts on is rebuilt from it, never taken from the result as
+  // given, which may have come from outside (a callback body, resume data).
+  if (!r?.signedAnswer) {
+    if (r?.status === 'waiting') return toResult({ id: p.id, status: 'waiting' }, null);
+    throw new Error(`Wayza answer for approval ${p.id} has no signed record`);
+  }
   const w = opts.wayza, home = opts.home ?? w?.home ?? 'https://wayza.com';
   await verify(r.signedAnswer, { home, fetch: opts.fetch ?? w?.fetch, insecure: opts.insecure ?? w?.insecure ?? home.startsWith('http:') });
   await checkAnswer(r.signedAnswer, p);
-  return { ...r, checked: true };
+  return { ...toResult(null, r.signedAnswer), approval: r.approval ?? null, checked: true };
 }
 
 /**

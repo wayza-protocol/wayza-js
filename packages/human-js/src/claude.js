@@ -65,8 +65,7 @@ export function wayzaCanUseTool(opts) {
  */
 export async function allowApproved(answer, pending, fallback, check = {}) {
   const opts = { ...(typeof fallback === 'object' ? fallback : {}), ...check };
-  await checked(opts, pending, answer);
-  const approved = decide(opts, answer);
+  const approved = decide(opts, await checked(opts, pending, answer));
   const key = canonicalKey(pending.toolName, pending.input);
   const next = typeof fallback === 'function' ? fallback
     : fallback ? wayzaCanUseTool(fallback)

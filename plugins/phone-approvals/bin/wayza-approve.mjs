@@ -82,11 +82,21 @@ export function describe(input) {
 
 // ---------- the hook ----------
 async function readStdin() { let s = ''; for await (const c of process.stdin) s += c; return s; }
+// Only a yes from the configured person themselves allows anything: their own row, approved, and recorded as answered by
+// a person (on Wayza or by email link). A yes from any AI, even one allowed to approve for them, is never enough.
+export const yesFromPerson = (a, person) => !!a && a.status === 'approved'
+  && (a.people || []).some((p) => p.to === person && p.decision === 'approved' && (p.as === 'person' || p.as === 'email-link'));
 const decide = (behavior, message) => process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PermissionRequest',
   decision: behavior === 'allow' ? { behavior } : { behavior, message } } }) + '\n');
 
-export async function hook(input, { config = load(), waitSeconds = Number(process.env.WAYZA_APPROVALS_WAIT) || 540, log = (m) => process.stderr.write(`wayza-approve: ${m}\n`) } = {}) {
+export async function hook(input, { config = load(), waitSeconds = Number(process.env.WAYZA_APPROVALS_WAIT) || 540, log = (m) => process.stderr.write(`wayza-approve: ${m}\n`), persist = save } = {}) {
   if (!config || !config.key || !config.person) return null;   // not set up: the normal prompt
+  if (config.enabled !== true) {   // switched on only once the person approves setup's first ask
+    if (!config.setup_ask) { log('not switched on: run "wayza-approve setup" to finish.'); return null; }
+    const s = await call(config, 'GET', `/approvals/${config.setup_ask}`).catch(() => null);
+    if (!yesFromPerson(s, config.person)) return null;
+    config = { ...config, enabled: true }; delete config.setup_ask; persist(config);
+  }
   if (input.permission_mode === 'bypassPermissions') return null;
   const { title, details } = describe(input);
   const wait = Math.max(5, Math.min(3000, waitSeconds)), until = Date.now() + wait * 1000;
@@ -101,7 +111,7 @@ export async function hook(input, { config = load(), waitSeconds = Number(proces
     const left = Math.ceil((until - Date.now()) / 1000);
     try { a = await call(config, 'GET', `/approvals/${a.id}?wait=${Math.max(1, Math.min(30, left))}`); }
     catch (e) { if (e.status && e.status < 500 && e.status !== 429) { log(`lost track of the ask (${e.message}).`); return null; } await sleep(2000); continue; }
-    if (a.status === 'approved') return 'allow';
+    if (a.status === 'approved') return yesFromPerson(a, config.person) ? 'allow' : null;
     if (a.status === 'declined') return 'deny';
     if (a.status !== 'waiting') return null;
   }
@@ -134,17 +144,19 @@ async function setup(args) {
     }
     if (!c.person) { console.log('Not confirmed yet. Run setup again once you have opened the link.'); return; }
   }
+  if (c.enabled === true) { console.log(`Already on: permission prompts go to ${c.person}.`); return; }
   console.log(`Connected to ${c.person}. Sending you a first ask now: tap Approve on your phone or at ${baseOf(c)}/account.`);
   console.log(`To get asks as notifications, open ${baseOf(c)}/account/notify on your phone and turn them on.\n`);
   const a = await call(c, 'POST', '/approvals', { to: [c.person], title: 'Send your coding agent\'s permission prompts to your phone?',
     details: 'From now on, when Claude Code or Codex on this computer stops to ask permission, the question comes here. Approve or Decline, and the agent carries on. If you don\'t answer, the normal prompt waits on your computer.',
     request_id: `setup-${Date.now()}` });
+  c.enabled = false; c.setup_ask = a.id; save(c);
   for (let i = 0; i < 20; i++) {
     const r = await call(c, 'GET', `/approvals/${a.id}?wait=30`).catch(() => null);
-    if (r && r.status === 'approved') { console.log('Done. Permission prompts now come to your phone.'); return; }
-    if (r && r.status !== 'waiting') { console.log('You declined, so nothing is sent to your phone. Run "wayza-approve forget" to remove the key from this computer.'); return; }
+    if (yesFromPerson(r, c.person)) { c.enabled = true; delete c.setup_ask; save(c); console.log('Done. Permission prompts now come to your phone.'); return; }
+    if (r && r.status !== 'waiting') { delete c.setup_ask; save(c); console.log('You declined, so nothing is sent to your phone. Run "wayza-approve forget" to remove the key from this computer.'); return; }
   }
-  console.log('No answer yet. It still works: the ask waits on your account page.');
+  console.log('No answer yet. Approve the ask on your account page and permission prompts start coming to your phone.');
 }
 
 async function main() {
@@ -160,7 +172,8 @@ async function main() {
   if (cmd === 'status') {
     const c = load();
     if (!c || !c.key) return console.log('Not set up. Run: wayza-approve setup');
-    return console.log(c.person ? `Asks go to ${c.person} from ${c.address}.` : `Waiting for you to confirm ${c.address}. Run setup again.`);
+    if (!c.person) return console.log(`Waiting for you to confirm ${c.address}. Run setup again.`);
+    return console.log(c.enabled === true ? `Asks go to ${c.person} from ${c.address}.` : c.setup_ask ? `Waiting for you to approve the first ask at ${baseOf(c)}/account.` : 'Off. Run: wayza-approve setup');
   }
   if (cmd === 'forget') { rmSync(CONFIG, { force: true }); return console.log(`Removed ${CONFIG}. Remove the AI itself from your account page if you like.`); }
   console.log('Use: wayza-approve setup | status | forget | hook');
