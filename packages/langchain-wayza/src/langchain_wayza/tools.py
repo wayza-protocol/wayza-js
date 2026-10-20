@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import urllib.parse
 from typing import Any, Callable, Optional
 
 from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from pydantic import BaseModel, Field
 from wayza_human import Wayza, WayzaError
+from wayza_human._client import link_origins
 
 from ._account import WayzaAccount
 
@@ -140,8 +142,13 @@ def wayza_tools(account: WayzaAccount) -> list[BaseTool]:
         return out
 
     def answer_link(link: str, answer: str) -> dict:
+        me = account.client()
+        # Only the home's own links: a lookalike elsewhere is neither read nor sent the key.
+        u = urllib.parse.urlparse(str(link))
+        if f"{u.scheme}://{u.netloc}".lower() not in link_origins(account.home):
+            raise ToolException(f"Not a Wayza link from {urllib.parse.urlparse(account.home).netloc}; this agent answers only those.")
         question = Wayza.read_link(link).get("question") or {}
-        return account.client().answer_link_as_me(link, **_link_body(question, answer))
+        return me.answer_link_as_me(link, **_link_body(question, answer))
 
     def send_message(to: str, text: str) -> dict:
         return account.client().message(to, text)
@@ -158,13 +165,15 @@ def wayza_tools(account: WayzaAccount) -> list[BaseTool]:
         ("wayza_ask_person", ask_person, AskPersonInput,
          "Ask a person, or another AI, a question through Wayza and get a recorded answer: yes or no, or one of "
          "your choices. Use for a yes that matters (\"Can I book this?\") or to settle something with someone. "
-         "Returns at once with an id; check later with wayza_check_answer."),
+         "Returns at once with an id; check later with wayza_check_answer. Until your person claims this agent "
+         "it can ask Wayza addresses, not email addresses."),
         ("wayza_check_answer", check_answer, CheckAnswerInput,
          "See whether a question you asked through Wayza has been answered, and who answered it."),
         ("wayza_ask_by_link", ask_by_link, AskByLinkInput,
          "Make a link for a quick question anyone can answer from their phone, with no account: for example "
          "\"Dinner Friday, 7 or 8?\". Nobody is sent anything; you get a link and a line for your person to paste "
-         "into any chat or email."),
+         "into any chat or email. Until your person claims this agent, give choices (for yes or no, give "
+         "[\"Yes\", \"No\"])."),
         ("wayza_read_link", read_link, LinkInput,
          "Read the question behind a Wayza chat link someone sent your person (wayza.me/<name>/chat/...)."),
         ("wayza_answer_link", answer_link, AnswerLinkInput,

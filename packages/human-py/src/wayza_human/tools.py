@@ -18,23 +18,29 @@ import functools
 import json
 import os
 import threading
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from ._client import DEFAULT_HOME, Wayza
+from ._client import DEFAULT_HOME, Wayza, link_origins
 from ._errors import WayzaError
 
 # An answer gates an action only when a person gave it (packages/CONTRACT.md, "Who answered").
 _PERSON = ("person", "email-link")
 
 # Set on hosted servers, where a key saved to a file does not survive the next start.
-HOSTED_SERVER_VARS = ("VERCEL", "AWS_LAMBDA_FUNCTION_NAME", "NETLIFY", "K_SERVICE", "FUNCTION_TARGET",
-                      "FUNCTIONS_WORKER_RUNTIME", "RENDER", "FLY_APP_NAME", "RAILWAY_ENVIRONMENT")
+HOSTED_SERVER_VARS = ("VERCEL", "AWS_LAMBDA_FUNCTION_NAME", "AWS_EXECUTION_ENV", "ECS_CONTAINER_METADATA_URI_V4", "NETLIFY",
+                      "K_SERVICE", "FUNCTION_TARGET", "GAE_SERVICE", "FUNCTIONS_WORKER_RUNTIME", "WEBSITE_INSTANCE_ID",
+                      "KUBERNETES_SERVICE_HOST", "DYNO", "RENDER", "FLY_APP_NAME", "RAILWAY_ENVIRONMENT",
+                      "DENO_DEPLOYMENT_ID", "SPACE_ID", "CI", "GITHUB_ACTIONS")
 
 
 def hosted_server() -> str | None:
-    """The environment variable that shows this runs on a hosted server, or None."""
-    return next((k for k in HOSTED_SERVER_VARS if os.environ.get(k)), None)
+    """What shows this runs on a hosted server or in a container, where a saved file may not last, or None."""
+    if os.environ.get("WAYZA_SIGN_UP") == "1":   # this machine keeps its files: sign up here anyway
+        return None
+    found = next((k for k in HOSTED_SERVER_VARS if os.environ.get(k)), None)
+    return found or ("a container (/.dockerenv)" if os.path.exists("/.dockerenv") else None)
 
 
 class NoKey(RuntimeError):
@@ -98,17 +104,23 @@ class WayzaAccount:
                     raise NoKey("No Wayza key: pass key=, set WAYZA_KEY, or allow sign_up.")
                 where = hosted_server()
                 if where:
-                    raise NoKey(f"This agent has no Wayza key, and on a hosted server ({where} is set) a saved key is lost "
+                    raise NoKey(f"This agent has no Wayza key, and on a hosted server ({where}) a saved key can be lost "
                                 "at the next start, so it would get a new address every time. Run "
                                 '"python -m wayza_human sign-up" once on your own computer and set the WAYZA_KEY it '
-                                "prints in this server's environment.")
+                                "prints in this server's environment. If this machine does keep its files, set WAYZA_SIGN_UP=1 instead.")
                 out = Wayza.sign_up(self.name, self.platform, deploy_key=os.environ.get("WAYZA_DEPLOY_KEY") or None,
                                     home=self.home, insecure=self.insecure)
                 self._saved = {k: out.get(k) for k in ("address", "full_address", "card", "claim_link")}
-                self._saved.update(home=self.home, key=out["key"])
-                self._save(self._saved)
+                self._saved.update(home=self.home, key=out["key"], name=self.name)
                 self._key = out["key"]
                 self._fresh = {**self._saved, "tell_your_person": out.get("tell_your_person")}
+                try:
+                    self._save(self._saved)
+                except OSError as e:
+                    # Keep the key for this run rather than signing up again on the next call.
+                    self._fresh["not_saved"] = (f"The key could not be saved to {self.key_file} ({e.strerror or e}), so "
+                                                "this address lasts only while this program runs. To keep one, run "
+                                                '"python -m wayza_human sign-up" and set WAYZA_KEY.')
             self._client = Wayza(self._key, self.home, insecure=self.insecure)
             return self._client
 
@@ -125,19 +137,20 @@ class WayzaAccount:
             "next": "This agent just got its own Wayza address. Give your person the claim_link privately: "
                     "opening it while signed in to Wayza makes this agent theirs. Never post it anywhere public.",
             "tell_your_person": fresh.get("tell_your_person"),
+            "not_saved": fresh.get("not_saved"),
         }
         return {k: v for k, v in note.items() if v}
 
     def summary(self) -> dict:
-        """This agent's address, and the claim link if it signed up from here."""
+        """This agent's address. Never the claim link: that was given to the person once, at sign-up."""
         self.client()
         d = self._saved or {}
-        out = {"address": d.get("address"), "full_address": d.get("full_address"), "card": d.get("card"),
-               "claim_link": d.get("claim_link"), "home": self.home}
+        out = {"address": d.get("address"), "full_address": d.get("full_address"), "card": d.get("card"), "home": self.home}
         if not d.get("address"):
             out["note"] = "This agent uses a key it was given, so its address isn't saved here; it is on the Wayza account page that made the key."
         elif d.get("claim_link"):
-            out["note"] = "The claim_link is for your person only, privately. Once they have claimed this agent it does nothing."
+            out["note"] = (f"The claim link was given to your person once, when this agent signed up; it is also saved in "
+                           f"{self.key_file} on this computer. Never share it with anyone else.")
         return {k: v for k, v in out.items() if v}
 
 
@@ -209,7 +222,8 @@ def tool_functions(account: WayzaAccount) -> list[Callable[..., dict]]:
         """Ask a person, or another AI, a question through Wayza and get a recorded answer: yes or no, or one of your choices.
 
         Use for a yes that matters ("Can I book this?") or to settle something with someone. Returns at once
-        with an id; check later with wayza_check_answer.
+        with an id; check later with wayza_check_answer. Until your person claims this agent it can ask Wayza
+        addresses, not email addresses.
 
         Args:
             to: Who to ask: a Wayza @address (for example @sam or @ai-3f9a1c2b) or an email address.
@@ -270,8 +284,13 @@ def tool_functions(account: WayzaAccount) -> list[Callable[..., dict]]:
             link: The Wayza chat link, for example https://wayza.me/ana/chat/...
             answer: What your person said: "yes" or "no", one of the choices exactly, or a short answer.
         """
+        me = account.client()
+        # Only the home's own links: a lookalike elsewhere is neither read nor sent the key.
+        u = urllib.parse.urlparse(str(link))
+        if f"{u.scheme}://{u.netloc}".lower() not in link_origins(account.home):
+            raise ValueError(f"Not a Wayza link from {urllib.parse.urlparse(account.home).netloc}; this agent answers only those.")
         question = Wayza.read_link(link).get("question") or {}
-        return account.client().answer_link_as_me(link, **_link_body(question, answer))
+        return me.answer_link_as_me(link, **_link_body(question, answer))
 
     @run
     def wayza_send_message(to: str, text: str) -> dict:

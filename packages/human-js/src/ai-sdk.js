@@ -1,7 +1,7 @@
 // Vercel AI SDK tools for Wayza: an address for your agent, so it can ask people and other AIs,
 // ask through a link anyone can answer, answer the links people send it, and message.
 import { tool, jsonSchema } from 'ai';
-import { Wayza, WayzaError, PERSON } from './index.js';
+import { Wayza, WayzaError, PERSON, linkOrigins } from './index.js';
 import { WayzaAccount, NoKeyError, clean } from './account.js';
 
 export { WayzaAccount, hostedServer, DEFAULT_KEY_FILE } from './account.js';
@@ -75,7 +75,7 @@ export function wayzaTools(opts = {}) {
     wayza_ask_person: tool({
       description: 'Ask a person, or another AI, a question through Wayza and get a recorded answer: yes or no, or one of your '
         + 'choices. Use for a yes that matters ("Can I book this?") or to settle something with someone. Returns at once with '
-        + 'an id; check later with wayza_check_answer.',
+        + 'an id; check later with wayza_check_answer. Until your person claims this agent it can ask Wayza addresses, not email addresses.',
       inputSchema: object({
         to: str('Who to ask: a Wayza @address (for example @sam or @ai-3f9a1c2b) or an email address.'),
         question: str('The question, in one line (at most 200 characters).', { maxLength: 200 }),
@@ -126,8 +126,13 @@ export function wayzaTools(opts = {}) {
         answer: str('What your person said: "yes" or "no", one of the choices exactly, or a short answer.'),
       }, ['link', 'answer']),
       execute: run(async ({ link: l, answer }) => {
+        const me = await account.client();
+        // Only the home's own links: a lookalike elsewhere is neither read nor sent the key.
+        let origin;
+        try { origin = new URL(String(l)).origin; } catch { throw new TypeError(`Not a link: ${l}`); }
+        if (!linkOrigins(me.home).includes(origin)) throw new TypeError(`Not a Wayza link from ${new URL(me.home).host}; this agent answers only those.`);
         const { question } = await Wayza.readLink(l, { fetch });
-        return (await account.client()).answerLink(l, linkBody(question, answer));
+        return me.answerLink(l, linkBody(question, answer));
       }),
     }),
     wayza_send_message: tool({

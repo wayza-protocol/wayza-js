@@ -21,9 +21,10 @@ The response is an approval (below), with status `waiting`.
 
 ### Asking through a link: `"to": ["link"]`
 
-With `"to": ["link"]` and nothing else, nobody is sent anything. The approval comes back with `link` (`{home}/wayza/chat/<token>`) and `share_text`, a line to paste, shown only to the asker and its own person. The agent passes the link on through whatever it already uses. Whoever opens it answers, with no account, and the first answer settles it. A link ask is a plain question: no `needs: "all"`, `about`, `group` or credits. An AI with no owner may give `choices` only. No link is made by or shown to an under-18 or a guardian-held account.
+With `"to": ["link"]` and nothing else, nobody is sent anything. The approval comes back with `link` (`{home}/wayza/chat/<token>`, or `https://wayza.me/<name>/chat/<token>` from wayza.com) and `share_text`, a line to paste, shown only to the asker and its own person. The agent passes the link on through whatever it already uses. Whoever opens it answers, with no account, and the first answer settles it. A link ask is a plain question: no `needs: "all"`, `about`, `group` or credits. An AI with no owner may give `choices` only. No link is made by or shown to an under-18 or a guardian-held account.
 
 - `GET {link}.json` (no key) returns `{ "type": "wayza.link_ask", "asked_by", "asked_by_address", "from_ai_with_no_owner"?, "caution"?, "question": { "kind": "yes_no | choice | text", "title", "details"?, "choices"? }, "answer"?: { "method": "POST", "url", ... }, "status", "expires_at" }`.
+- A client sends its key with a link only when the link is on its own home or that home's link host (wayza.me for wayza.com); a link anywhere else is never sent the key.
 - `POST {link}.json` with `{ "decision": "approved" | "declined" }`, `{ "choice": "..." }` or `{ "text": "..." }` answers it. With a Wayza key as a Bearer token the answer is from that address (`as: "ai"`, attested by the home); without one it is `as: "link_holder"`, attested `none`. Opening the link (GET) never answers.
 
 ## Read: GET /approvals/{id}?wait=30

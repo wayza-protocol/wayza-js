@@ -31,12 +31,14 @@ class ToolsTests(unittest.TestCase):
         self.home = MockHome().start()
         self.dir = tempfile.TemporaryDirectory()
         self.key_file = os.path.join(self.dir.name, "wayza", "test.json")
-        self._env = {k: os.environ.pop(k, None) for k in ("WAYZA_KEY", "WAYZA_HOME", "WAYZA_DEPLOY_KEY", *HOSTED_SERVER_VARS)}
+        self._env = {k: os.environ.pop(k, None) for k in ("WAYZA_KEY", "WAYZA_HOME", "WAYZA_DEPLOY_KEY", "WAYZA_SIGN_UP", *HOSTED_SERVER_VARS)}
+        os.environ["WAYZA_SIGN_UP"] = "1"   # containers count as hosted; these tests sign up anyway
 
     def tearDown(self):
         self.home.stop()
         self.dir.cleanup()
         for k, v in self._env.items():
+            os.environ.pop(k, None)
             if v is not None:
                 os.environ[k] = v
 
@@ -69,11 +71,14 @@ class ToolsTests(unittest.TestCase):
         self.assertIn("proof", signup)
         self.assertEqual(stat.S_IMODE(os.stat(self.key_file).st_mode), 0o600)
         self.assertNotIn("new_address", tools["wayza_check_answer"](id=str(first["id"])))
-        again = self.tools()
-        self.assertEqual(again["wayza_my_address"]()["address"], note["address"])
+        mine = self.tools()["wayza_my_address"]()
+        self.assertEqual(mine["address"], note["address"])
+        self.assertNotIn("claim_link", mine)
+        self.assertIn("given to your person once", mine["note"])
         self.assertEqual(len(self.signups()), 1)
 
     def test_on_a_hosted_server_it_asks_for_a_key_instead_of_signing_up(self):
+        del os.environ["WAYZA_SIGN_UP"]
         os.environ["K_SERVICE"] = "agent"
         out = self.tools()["wayza_ask_person"](to="@sam", question="Ok?")
         self.assertIn("WAYZA_KEY", out["error"])
@@ -81,6 +86,21 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(self.signups(), [])
         self.assertFalse(os.path.exists(self.key_file))
         self.assertEqual(self.tools(key="fam_bot")["wayza_ask_person"](to="@sam", question="Ok?")["status"], "waiting")
+
+    def test_a_key_that_cannot_be_saved_is_kept_for_the_run(self):
+        blocker = os.path.join(self.dir.name, "a-file")
+        Path(blocker).write_text("")   # a file where the folder should be: the save fails
+        tools = self.tools(key_file=os.path.join(blocker, "test.json"))
+        first = tools["wayza_ask_person"](to="@sam", question="Ok?")
+        self.assertIn("could not be saved", first["new_address"]["not_saved"])
+        self.assertEqual(tools["wayza_ask_person"](to="@sam", question="Again?")["status"], "waiting")
+        self.assertEqual(len(self.signups()), 1)
+
+    def test_the_key_never_goes_to_a_link_on_another_host(self):
+        n = len(self.home.requests)
+        out = self.tools(key="fam_bot")["wayza_answer_link"](link="https://evil.example/ana/chat/" + "T" * 32, answer="Yes")
+        self.assertIn("error", out)
+        self.assertEqual(self.home.requests[n:], [])
 
     def test_no_sign_up_when_not_allowed(self):
         self.assertIn("No Wayza key", self.tools(sign_up=False)["wayza_ask_person"](to="@sam", question="Ok?")["error"])

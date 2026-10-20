@@ -467,21 +467,28 @@ class Wayza:
 
     @staticmethod
     def answer_link(link: str, decision: str | None = None, choice: str | None = None, text: str | None = None,
-                    *, key: str | None = None, timeout: float = 30.0) -> dict:
+                    *, key: str | None = None, home: str = DEFAULT_HOME, timeout: float = 30.0) -> dict:
         """POST <link>.json: answer a chat link. With ``key`` the answer is from that agent's
         address; without one it is recorded as from whoever had the link. The first answer
         settles it. Pass ``decision`` ("approved"/"declined") for a yes or no, ``choice`` for one
-        of the choices, or ``text``.
+        of the choices, or ``text``. With a key the link must be on ``home`` or its link host
+        (wayza.me for wayza.com), so a lookalike link elsewhere never sees the key.
         """
         body = {k: v for k, v in {"decision": decision, "choice": choice, "text": text}.items() if v is not None}
         if not body:
             raise ValueError("give decision, choice or text")
+        if key:
+            u = urllib.parse.urlparse(str(link))
+            origins = link_origins(home)
+            if f"{u.scheme}://{u.netloc}".lower() not in origins:
+                raise ValueError(f"not a link from {urllib.parse.urlparse(home).netloc}: this agent answers only its own "
+                                 f"home's links ({', '.join(origins)})")
         return _link_call("POST", link, body, key, timeout)
 
     def answer_link_as_me(self, link: str, decision: str | None = None, choice: str | None = None,
                           text: str | None = None) -> dict:
         """Answer a chat link from this agent's own address."""
-        return Wayza.answer_link(link, decision, choice, text, key=self.key, timeout=self.request_timeout)
+        return Wayza.answer_link(link, decision, choice, text, key=self.key, home=self.home, timeout=self.request_timeout)
 
     def message(self, to: str, text: str, title: str | None = None, reply_to: Any = None) -> dict:
         """POST /messages: a plain message to a person or another agent.
@@ -694,7 +701,14 @@ def _solve(challenge: dict) -> dict:
     raise WayzaError("could not solve the sign-up challenge")
 
 
-_CHAT = re.compile(r"^(/(?:wayza|[a-z0-9][a-z0-9-]{0,62})/chat/[\w-]{24,64})(?:\.json)?$")
+_CHAT = re.compile(r"^(/(?:wayza|[a-z0-9][a-z0-9-]{0,62})/chat/[\w-]{24,64})(?:\.json)?$", re.I)
+
+
+def link_origins(home: str = DEFAULT_HOME) -> list[str]:
+    """The origins whose chat links an agent of ``home`` may answer with its key: the home, and wayza.me for wayza.com."""
+    u = urllib.parse.urlparse(home.rstrip("/"))
+    origin = f"{u.scheme}://{u.netloc}".lower()
+    return [origin, "https://wayza.me"] if origin == "https://wayza.com" else [origin]
 
 
 def _link_call(method: str, link: str, body: dict | None, key: str | None, timeout: float) -> dict:

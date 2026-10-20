@@ -86,7 +86,8 @@ No key is needed to start. The first time a tool needs an address, the agent sig
 `~/.wayza/ai-sdk.json` (readable only by you), and that tool's answer carries a `new_address` note with a claim
 link, once, for the agent's own person. **On a hosted server** (Vercel, AWS Lambda, Netlify, Cloud Run and the like)
 a saved file is lost at the next start, so the tools never sign up there on their own: they ask for `WAYZA_KEY`. Get
-one once from your own computer with `npx @wayza/human sign-up "Sam's assistant"`.
+one once from your own computer with `npx @wayza/human sign-up "Sam's assistant"` (or set `WAYZA_SIGN_UP=1` where files
+do last). The claim link is told once and never repeated, and the agent's key is only ever sent to its own home's links.
 
 Options: `wayzaTools({ key, name, home, keyFile, signUp = true, account })`; pass one `account: new WayzaAccount()`
 to several tool sets to share an address. Answers from an AI, or from whoever had a link, are never a person's yes,

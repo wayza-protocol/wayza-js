@@ -1,14 +1,15 @@
 // The tools against the local mock home (../human-js/test/mock-server.js), and once through a real generateText.
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startMock, KEY } from './mock-server.js';
 import { wayzaTools, hostedServer } from '../src/ai-sdk.js';
 
-const HOSTED = ['VERCEL', 'AWS_LAMBDA_FUNCTION_NAME', 'NETLIFY', 'K_SERVICE', 'FUNCTION_TARGET', 'FUNCTIONS_WORKER_RUNTIME', 'RENDER', 'FLY_APP_NAME', 'RAILWAY_ENVIRONMENT'];
-for (const k of [...HOSTED, 'WAYZA_KEY', 'WAYZA_HOME', 'WAYZA_DEPLOY_KEY']) delete process.env[k];
+for (const k of ['WAYZA_KEY', 'WAYZA_HOME', 'WAYZA_DEPLOY_KEY']) delete process.env[k];
+// CI and containers count as hosted; these tests sign up anyway, except the one about hosted servers.
+process.env.WAYZA_SIGN_UP = '1';
 
 let mock, dir;
 before(async () => { mock = await startMock(); });
@@ -44,15 +45,20 @@ test('first use signs up, saves the key privately and tells the person once', as
   const second = await call(tools, 'wayza_check_answer', { id: String(first.id) });
   assert.equal(second.new_address, undefined);
   // A new tool set finds the saved key: no second sign-up.
-  assert.equal((await call(kit(), 'wayza_my_address')).address, '@ai-new');
+  const mine = await call(kit(), 'wayza_my_address');
+  assert.equal(mine.address, '@ai-new');
+  assert.equal(mine.claim_link, undefined, 'the claim link is told once, never again');
+  assert.match(mine.note, /given to your person once/);
   assert.equal(signups(), n + 1);
 });
 
 test('on a hosted server with no key it asks for WAYZA_KEY instead of signing up', async () => {
   const n = signups();
+  delete process.env.WAYZA_SIGN_UP;
+  const ci = process.env.CI;
   process.env.VERCEL = '1';
   try {
-    assert.equal(hostedServer(), 'VERCEL');
+    assert.equal(await hostedServer(), 'VERCEL');
     const out = await call(kit(), 'wayza_ask_person', { to: '@sam', question: 'Ok?' });
     assert.match(out.error, /WAYZA_KEY/);
     assert.match(out.error, /npx @wayza\/human sign-up/);
@@ -62,7 +68,29 @@ test('on a hosted server with no key it asks for WAYZA_KEY instead of signing up
     assert.equal((await call(kit({ key: KEY }), 'wayza_ask_person', { to: '@sam', question: 'Ok?' })).status, 'waiting');
   } finally {
     delete process.env.VERCEL;
+    process.env.WAYZA_SIGN_UP = '1';
+    if (ci !== undefined) process.env.CI = ci;
   }
+});
+
+test('a key that cannot be saved is kept for the run, never signed up again', async () => {
+  const n = signups();
+  const blocker = join(dir, 'a-file');
+  await writeFile(blocker, '');   // a file where the folder should be: the save fails
+  const tools = wayzaTools({ home: mock.url, keyFile: join(blocker, 'ai-sdk.json') });
+  const first = await call(tools, 'wayza_ask_person', { to: '@sam', question: 'Ok?' });
+  assert.equal(first.status, 'waiting');
+  assert.match(first.new_address.not_saved, /could not be saved/);
+  assert.equal((await call(tools, 'wayza_ask_person', { to: '@sam', question: 'Again?' })).status, 'waiting');
+  assert.equal(signups(), n + 1);
+});
+
+test('the key never goes to a link on another host', async () => {
+  const tools = kit({ key: KEY });
+  const before = mock.calls.length;
+  const out = await call(tools, 'wayza_answer_link', { link: `https://evil.example/ana/chat/${'T'.repeat(32)}`, answer: 'Yes' });
+  assert.ok(out.error);
+  assert.ok(mock.calls.slice(before).every((c) => !c.auth), 'nothing was sent with the key');
 });
 
 test('no sign-up when not allowed', async () => {

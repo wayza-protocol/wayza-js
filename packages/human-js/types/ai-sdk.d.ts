@@ -32,6 +32,6 @@ export class WayzaAccount {
   summary(): Promise<Record<string, string>>;
 }
 
-/** The environment variable that shows this runs on a hosted server, or null. */
-export function hostedServer(): string | null;
+/** What shows this runs on a hosted server, an edge runtime or in a container, or null. WAYZA_SIGN_UP=1 overrides it. */
+export function hostedServer(): Promise<string | null>;
 export const DEFAULT_KEY_FILE: string;

@@ -21,6 +21,12 @@ its key in `~/.wayza/langchain.json` (readable only by you), and that tool's ans
 privately: opening it while signed in to Wayza makes the agent theirs. To use a key you already
 have, set `WAYZA_KEY` or pass `WayzaToolkit(key="fam_...")`.
 
+**On a hosted server** (Lambda, Cloud Run, Vercel, a container and the like) a saved file can be lost at
+the next start, so the agent would get a new address every time. There the tools never sign up on their
+own: they ask for `WAYZA_KEY`. Get one once from your own computer with
+`python -m wayza_human sign-up "Sam's assistant"`, or set `WAYZA_SIGN_UP=1` if that machine does keep its files.
+The claim link is told once, at sign-up; `wayza_my_address` never repeats it.
+
 ## The tools
 
 | Tool | What it does |
