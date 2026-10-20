@@ -58,6 +58,8 @@ class MockHome:
         self.delivered: list[dict] = []
         self.inboxes: dict[str, list[dict]] = {}
         self.next_msg = 1
+        self.pow_bits = 8
+        self.links: dict[str, dict] = {}
         if HAVE_CRYPTO:
             self.private_key = Ed25519PrivateKey.generate()
             raw = self.private_key.public_key().public_bytes(
@@ -205,8 +207,12 @@ class MockHome:
                     return self._send(200, home.well_known())
                 if home.fail_next:
                     return self._send(home.fail_next.pop(0), {"error": "try again"})
+                if u.path == "/wayza/v0/agents/challenge" and method == "GET":
+                    return self._send(200, {"challenge": f"c{len(home.requests)}", "bits": home.pow_bits})
                 if u.path == "/wayza/v0/agents" and method == "POST":
                     return self._sign_up(body or {})
+                if "/chat/" in u.path and u.path.endswith(".json"):
+                    return self._link(method, u.path, body)
                 if not u.path.startswith("/wayza/v0/approvals") and u.path != "/wayza/v0/messages":
                     return self._send(404, {"error": "unknown"})
                 key, me = self._me()
@@ -264,6 +270,14 @@ class MockHome:
                         "asked_by": me, "asked_by_address": me + "@" + home.netloc,
                         "_asked_by": me, "_request": b,
                     }
+                    if to == ["link"]:
+                        token = hashlib.sha256(f"link{id}".encode()).hexdigest()[:32]
+                        name = me.lstrip("@").split(".")[0]
+                        ap["people"] = []
+                        ap["link"] = f"{home.home}/{name}/chat/{token}"
+                        ap["share_text"] = f"{title} Answer here, no account needed: {ap['link']}"
+                        home.links[token] = {"name": name, "status": "waiting", "asked_by": me, "address": me,
+                                             "title": title, "choices": b.get("choices"), "_id": id}
                     home.approvals[id] = ap
                     if rid:
                         home.by_request[(me, rid)] = id
@@ -274,12 +288,42 @@ class MockHome:
                     return self._send(400, {"error": "name is required"})
                 if self.headers.get("Authorization"):
                     return self._send(400, {"error": "sign-up takes no key"})
+                proof = b.get("proof")
+                if not b.get("deploy_key"):
+                    if not proof:
+                        return self._send(429, {"error": "too many sign-ups from here; send a proof"})
+                    d = hashlib.sha256(f"{proof['challenge']}:{proof['nonce']}".encode()).digest()
+                    if int.from_bytes(d, "big") >> (256 - home.pow_bits):
+                        return self._send(400, {"error": "That proof of work does not check out."})
                 key = f"fam_new{len(home.keys)}"
                 addr = f"@ai-new{len(home.keys)}"
                 home.keys[key] = addr
                 return self._send(201, {"id": "wz_x", "address": addr, "full_address": addr[1:] + "@" + home.netloc,
                                         "card": f"{home.home}/a/wz_x.json", "owner_status": "none",
                                         "claim_link": f"{home.home}/claim/abc", "connector_key": key})
+
+            def _link(self, method, path, b):
+                token = path.rsplit("/", 1)[1][:-5]
+                ln = home.links.get(token)
+                if not ln or not path.startswith(f"/{ln['name']}/chat/"):
+                    return self._send(404, {"error": "No question at this link."})
+                if method == "GET":
+                    out = {"type": "wayza.link_ask", "link": f"{home.home}{path[:-5]}", "status": ln["status"],
+                           "asked_by": ln["asked_by"], "asked_by_address": ln["address"],
+                           "question": {"kind": "choice" if ln.get("choices") else "yes_no", "title": ln["title"],
+                                        "choices": ln.get("choices")}}
+                    return self._send(200, {k: v for k, v in out.items() if v is not None})
+                if ln["status"] != "waiting":
+                    return self._send(409, {"error": "This has been answered already."})
+                key, me = self._me()
+                if self.headers.get("Authorization") and not me:
+                    return self._send(401, {"error": "missing or bad key"})
+                b = b or {}
+                if ln.get("choices") and b.get("choice") not in ln["choices"]:
+                    return self._send(400, {"error": "Pick one of the choices."})
+                ln.update(status="answered", answer=b, by=me)
+                return self._send(200, {"answered": True, "goes_to": ln["address"],
+                                        "recorded_as": f"your own address, {me}" if me else "from whoever had this link"})
 
             def _message(self, me, b):
                 if not b.get("to") or not b.get("text"):

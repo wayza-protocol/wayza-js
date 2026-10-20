@@ -1,0 +1,2 @@
+# Keep the sdist to the package: the tests need the repo's mock home and stay in the repo.
+prune tests

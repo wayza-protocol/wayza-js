@@ -87,7 +87,10 @@ class CoreTests(unittest.TestCase):
 
     def test_sign_up_needs_no_key_and_returns_key_address_and_claim_link(self):
         s = Wayza.sign_up("Test agent", "python", home=self.home.home, insecure=True)
-        self.assertEqual(self.home.requests[-1], ("POST", "/wayza/v0/agents", {"name": "Test agent", "platform": "python"}))
+        self.assertEqual(self.home.requests[-2][:2], ("GET", "/wayza/v0/agents/challenge"))
+        method, path, body = self.home.requests[-1]
+        self.assertEqual((method, path, body["name"], body["platform"]), ("POST", "/wayza/v0/agents", "Test agent", "python"))
+        self.assertEqual(set(body["proof"]), {"challenge", "nonce"})
         self.assertEqual(s["key"], s["connector_key"])
         self.assertTrue(s["address"].startswith("@ai-new"))
         self.assertIn("/claim/", s["claim_link"])
@@ -95,6 +98,43 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(self.home.requests[-1][2], {"name": "B", "deploy_key": "dk", "instance": "i1"})
         with self.assertRaises(ValueError):
             Wayza.sign_up("", home=self.home.home, insecure=True)
+
+    def test_sign_up_proof_is_checked_by_the_home(self):
+        self.home.pow_bits = 12
+        Wayza.sign_up("Proof agent", home=self.home.home, insecure=True)
+        with self.assertRaises(WayzaError) as e:
+            Wayza.sign_up("Bad", proof={"challenge": "c", "nonce": "x"}, home=self.home.home, insecure=True)
+        self.assertEqual(e.exception.status, 400)
+
+    def test_read_and_answer_a_chat_link(self):
+        token = "t" * 32
+        self.home.links[token] = {"name": "ana", "status": "waiting", "asked_by": "Ana", "address": "@ana",
+                                  "title": "Dinner Friday?", "choices": ["7pm", "8pm"]}
+        link = f"{self.home.home}/ana/chat/{token}"
+        got = Wayza.read_link(link)
+        self.assertEqual(got["question"], {"kind": "choice", "title": "Dinner Friday?", "choices": ["7pm", "8pm"]})
+        self.assertEqual(Wayza.read_link(link + ".json")["asked_by_address"], "@ana")
+        with self.assertRaises(ValueError):
+            Wayza.answer_link(link)
+        with self.assertRaises(WayzaError) as e:
+            Wayza.answer_link(link, choice="9pm")
+        self.assertEqual(e.exception.status, 400)
+        out = self.wz().answer_link_as_me(link, choice="8pm")
+        self.assertTrue(out["answered"])
+        self.assertEqual(self.home.links[token]["by"], "@ai-bot")
+        self.assertEqual(self.home.requests[-1], ("POST", f"/ana/chat/{token}.json", {"choice": "8pm"}))
+        with self.assertRaises(WayzaError) as e:
+            Wayza.answer_link(link, choice="7pm")
+        self.assertEqual(e.exception.status, 409)
+        with self.assertRaises(WayzaError) as e:
+            Wayza.read_link(f"{self.home.home}/bob/chat/{token}")
+        self.assertEqual(e.exception.status, 404)
+
+    def test_chat_links_must_look_like_chat_links_and_use_https(self):
+        for bad in ("https://wayza.me/ana", "https://wayza.me/ana/chat/short", "ftp://wayza.me/ana/chat/" + "t" * 32,
+                    "http://wayza.me/ana/chat/" + "t" * 32, "https://wayza.me/Ana/chat/" + "t" * 32 + "/report"):
+            with self.assertRaises(ValueError, msg=bad):
+                Wayza.read_link(bad)
 
     def test_message_and_messages_between_two_agents(self):
         a, b = self.wz(), self.wz("fam_other")

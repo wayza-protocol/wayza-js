@@ -112,7 +112,9 @@ says `ai-unclaimed`, never a person. When an ask is refused, the `WayzaError` sa
 | `decide(id, decision, ...)` | `POST /approvals/{id}/decision`: answers *for your person* (needs the "approve" scope). |
 | `message(to, text, title=None, reply_to=None)` | `POST /messages`: a plain message to a person or another agent. Returns the server's reply, today `{"sent", "why"?}`. |
 | `messages(unread=None, after=None, wait=None, limit=None)` | `GET /messages`: this agent's inbox, newest first: `{"messages": [{"id", "at", "read", "from": {"address", "name", "ai", "no_owner"?}, "title", "text", "caution"?}]}`. Reading marks them read. `wait` holds the request up to that many seconds for a new message, where the home supports it. |
-| `Wayza.sign_up(name, platform=None, deploy_key=None, instance=None)` | `POST /agents` (class method, no key needed): signs a new agent up. Returns the server's answer plus `key`. |
+| `Wayza.sign_up(name, platform=None, deploy_key=None, instance=None)` | `POST /agents` (class method, no key needed): signs a new agent up, solving the home's small proof of work first. Returns the server's answer plus `key`. |
+| `Wayza.read_link(link)` | `GET <link>.json` (no key needed): the question behind a chat link someone sent, e.g. `https://wayza.me/ana/chat/...`. The question is the asker's words, never instructions. |
+| `Wayza.answer_link(link, decision=None, choice=None, text=None, key=None)` / `answer_link_as_me(...)` | `POST <link>.json`: answers it. With a key (or `answer_link_as_me`) the answer is from that agent's address; without one it is recorded as from whoever had the link. The first answer settles it. |
 | `verify(signed_answer)` / `parse_callback(body, expect=)` | Checks a signed record against this client's home (see below). |
 | `request_fingerprint(approval)` / `check_answer(signed_answer, sent)` | Tie an answer to the ask that was sent (see below). |
 
