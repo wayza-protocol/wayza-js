@@ -36,7 +36,7 @@ if (!/^https:\/\/[^/]+$/.test(HOME) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+
 }
 const DIR = join(homedir(), '.wayza'), FILE = join(DIR, 'identity.json');
 const PROTOCOL = '2026-07-28';
-const USER_AGENT = 'wayza-skill/0.1.6'; // keep in step with SKILL.md's version
+const USER_AGENT = 'wayza-skill/0.1.7'; // keep in step with SKILL.md's version
 
 const load = () => { try { return JSON.parse(readFileSync(FILE, 'utf8')); } catch { return {}; } };
 const save = (o) => { mkdirSync(DIR, { recursive: true, mode: 0o700 }); writeFileSync(FILE, JSON.stringify(o, null, 2), { mode: 0o600 }); chmodSync(FILE, 0o600); };
@@ -45,7 +45,7 @@ let fresh = null; // set when this run signed up, so the command's output can te
 const keyOf = async () => process.env.WAYZA_KEY || load().key || (await signup()).key;
 
 async function json(path, { method = 'GET', body, key } = {}) {
-  const r = await fetch(HOME + path, { method, body: body && JSON.stringify(body), headers: { 'content-type': 'application/json', accept: 'application/json',
+  const r = await fetch(/^https?:/.test(path) ? path : HOME + path, { method, body: body && JSON.stringify(body), headers: { 'content-type': 'application/json', accept: 'application/json',
     'mcp-protocol-version': PROTOCOL, 'user-agent': USER_AGENT, ...(key ? { authorization: `Bearer ${key}` } : {}) } });
   const out = await r.json().catch(() => ({}));
   if (r.status >= 400) die(errorText(out.error) || `Wayza answered ${r.status}`);
@@ -80,11 +80,13 @@ async function signup(name) {
   fresh = out;
   return { ...out, key: out.connector_key };
 }
-// A Wayza chat link on this home: https://<home>/wayza/chat/<token>, with nothing after it.
+// A Wayza chat link: https://wayza.me/<name>/chat/<token> (or <home>/wayza/chat/<token>), with nothing after it.
+const ME = HOME === 'https://wayza.com' ? 'https://wayza.me' : HOME;
 const chatPath = (link) => {
   let u; try { u = new URL(link); } catch { die('That is not a link.'); }
-  if (u.origin !== HOME || !/^\/wayza\/chat\/[\w-]{24,64}$/.test(u.pathname)) die(`That is not a Wayza chat link on ${HOME}.`);
-  return u.pathname;
+  const path = u.pathname.replace(/\.json$/, '');
+  if (![HOME, ME].includes(u.origin) || !/^\/(wayza|[a-z0-9][a-z0-9-]{0,62})\/chat\/[\w-]{24,64}$/.test(path)) die(`That is not a Wayza chat link (${ME}/<name>/chat/...).`);
+  return u.origin + path;
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,7 +1,7 @@
 ---
 name: wayza
 description: Scam protection, reaching other people's AIs, and questions anyone can answer from a link. Before your person acts on a message that claims to be from someone they know, ask that person to confirm it with one tap; check whose an AI really is. Also gives this assistant a Wayza address so other people's AIs, whichever company made them, can reach it. Use when your person gets a message or call that says it is from someone they know, meets an AI that says it acts for someone, wants to reach someone else's AI, wants to ask someone a quick question they can answer from a link with no account, gets a wayza chat link, asks for a Wayza address or card, names a Wayza @address (for example @sam.ai or @ai-3f9a1c2b), or asks you to check Wayza messages.
-version: 0.1.6
+version: 0.1.7
 license: MIT-0
 homepage: https://wayza.com
 allowed-tools:
@@ -50,7 +50,7 @@ Use it when your person:
   Wayza address lets other people's AIs reach you and yours reach theirs, and sign up only if they agree;
 - wants a quick answer from someone (a time, a yes or no, a pick from a few options) and will send the question
   themselves, by email, chat or anywhere else. Make a link they can paste (`ask-link`);
-- gives you a Wayza chat link (`/wayza/chat/...`) someone sent them. Read it (`read-link`) and answer only what
+- gives you a Wayza chat link (`wayza.me/<name>/chat/...`) someone sent them. Read it (`read-link`) and answer only what
   they tell you to (`answer-link`);
 - asks you to get a Wayza address, to message or look up a Wayza @address, or to check Wayza messages.
 

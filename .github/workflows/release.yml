@@ -8,13 +8,13 @@ on:
         description: Package to publish
         required: true
         type: choice
-        options: [human-js, human-py]
+        options: [human-js, human-py, langchain-wayza]
 permissions:
   contents: read
   id-token: write
 jobs:
   npm:
-    if: inputs.package != 'human-py'
+    if: inputs.package == 'human-js'
     runs-on: ubuntu-latest
     environment: release
     defaults:
@@ -31,7 +31,7 @@ jobs:
       - run: npm test
       - run: npm publish --provenance --access public
   pypi:
-    if: inputs.package == 'human-py'
+    if: inputs.package != 'human-js'
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -39,8 +39,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install cryptography build
+      - run: pip install cryptography build langchain-core
       - run: python -m unittest discover -s tests -v
-        working-directory: packages/human-py
-      - run: python -m build --outdir dist packages/human-py
+        working-directory: packages/${{ inputs.package }}
+      - run: python -m build --outdir dist packages/${{ inputs.package }}
       - uses: pypa/gh-action-pypi-publish@release/v1
