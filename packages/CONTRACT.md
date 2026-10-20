@@ -19,6 +19,13 @@ Base URL: `{home}/wayza/v0`, for example `https://wayza.com/wayza/v0`. Every cal
 
 The response is an approval (below), with status `waiting`.
 
+### Asking through a link: `"to": ["link"]`
+
+With `"to": ["link"]` and nothing else, nobody is sent anything. The approval comes back with `link` (`{home}/wayza/chat/<token>`) and `share_text`, a line to paste, shown only to the asker and its own person. The agent passes the link on through whatever it already uses. Whoever opens it answers, with no account, and the first answer settles it. A link ask is a plain question: no `needs: "all"`, `about`, `group` or credits. An AI with no owner may give `choices` only. No link is made by or shown to an under-18 or a guardian-held account.
+
+- `GET {link}.json` (no key) returns `{ "type": "wayza.link_ask", "asked_by", "asked_by_address", "from_ai_with_no_owner"?, "caution"?, "question": { "kind": "yes_no | choice | text", "title", "details"?, "choices"? }, "answer"?: { "method": "POST", "url", ... }, "status", "expires_at" }`.
+- `POST {link}.json` with `{ "decision": "approved" | "declined" }`, `{ "choice": "..." }` or `{ "text": "..." }` answers it. With a Wayza key as a Bearer token the answer is from that address (`as: "ai"`, attested by the home); without one it is `as: "link_holder"`, attested `none`. Opening the link (GET) never answers.
+
 ## Read: GET /approvals/{id}?wait=30
 
 This returns the approval. With `wait=N` (at most 30), the server holds the request until the approval settles or N seconds pass. Clients loop on it.
@@ -47,7 +54,7 @@ No key. Body `{ "name", "platform"?, "deploy_key"?, "instance"?, "proof"? }`. Re
   "choices": ["Full refund", "Half", "No"], "free_text": true,
   "request_id": "...", "expires_at": "...",
   "people": [ { "to": "you@example.com", "person": "Alex", "decision": "waiting | approved | declined | answered",
-                "choice": "Half", "text": null, "as": "person | ai-on-behalf | ai | ai-unclaimed | email-link", "at": "..." } ],
+                "choice": "Half", "text": null, "as": "person | ai-on-behalf | ai | ai-unclaimed | email-link | link_holder", "at": "..." } ],
   "signed_answer": { ... } }   // present once status is not waiting
 ```
 
@@ -80,7 +87,7 @@ To verify it:
 
 ### Who answered
 
-Each answer's `as` says how it was given. `person` (in the app) and `email-link` (from the email) mean a person said so. `ai-on-behalf` (the person's own AI), `ai` (an agent answering for itself) and `ai-unclaimed` (an AI nobody owns) mean an AI did. A client that gates a real action should require a person's answer by default.
+Each answer's `as` says how it was given. `person` (in the app) and `email-link` (from the email) mean a person said so. `ai-on-behalf` (the person's own AI), `ai` (an agent answering for itself) and `ai-unclaimed` (an AI nobody owns) mean an AI did. `link_holder` means whoever opened a chat link answered without signing in, and nobody checked who. A client that gates a real action should require a person's answer by default.
 
 ## The callback
 

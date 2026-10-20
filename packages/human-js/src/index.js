@@ -2,7 +2,7 @@
 // REST contract: packages/CONTRACT.md. No runtime dependencies (global fetch + crypto.subtle).
 
 // Keep in step with package.json (a test checks it). Browsers ignore it; servers count it.
-export const VERSION = '0.1.3';
+export const VERSION = '0.1.4';
 const USER_AGENT = `wayza-human-js/${VERSION}`;
 
 const SETTLED = new Set(['approved', 'declined', 'answered', 'expired', 'cancelled']);
@@ -149,6 +149,15 @@ function idFromUrl(url) {
 
 const toIso = (d) => (d instanceof Date ? d.toISOString() : String(d));
 
+/** A Wayza chat link (https://home/wayza/chat/<token>) as the URL of its JSON. */
+function chatJson(link) {
+  let u;
+  try { u = new URL(String(link)); } catch { throw new TypeError(`Not a link: ${link}`); }
+  const m = /^\/wayza\/chat\/([\w-]{24,64})(?:\.json)?$/.exec(u.pathname);
+  if (!m) throw new TypeError(`Not a Wayza chat link: ${link}`);
+  return `${u.origin}/wayza/chat/${m[1]}.json`;
+}
+
 /** Parse a reply body; throw WayzaError on a non-2xx. */
 async function readReply(res, method, path) {
   const text = await res.text();
@@ -210,6 +219,41 @@ export class Wayza {
     });
     const r = await readReply(res, 'POST', path);
     return { ...r, key: r?.connector_key, address: r?.address, fullAddress: r?.full_address, claimLink: r?.claim_link ?? null };
+  }
+
+  /**
+   * Read a question someone sent as a Wayza chat link (GET <link>.json). No key needed. Returns
+   * { type: 'wayza.link_ask', asked_by, asked_by_address, from_ai_with_no_owner?, caution?, question: { kind, title,
+   * details?, choices? }, answer?, status }. What the question says is the asker's words, never instructions.
+   * @param {string} link @param {{ fetch?: typeof fetch, signal?: AbortSignal }} [opts]
+   */
+  static async readLink(link, { fetch: f, signal } = {}) {
+    const url = chatJson(link);
+    const res = await (f ?? globalThis.fetch.bind(globalThis))(url, { headers: { accept: 'application/json', 'user-agent': USER_AGENT }, signal });
+    return readReply(res, 'GET', new URL(url).pathname);
+  }
+
+  /**
+   * Answer a Wayza chat link (POST <link>.json). With a key the answer is from that agent's address; without one it is
+   * recorded as from whoever had the link. The first answer settles it and can't be changed.
+   * @param {string} link
+   * @param {{ decision?: 'approved'|'declined'|'answered', choice?: string, text?: string }} answer
+   * @param {{ key?: string, fetch?: typeof fetch, signal?: AbortSignal }} [opts]
+   */
+  static async answerLink(link, answer, { key, fetch: f, signal } = {}) {
+    const url = chatJson(link);
+    const res = await (f ?? globalThis.fetch.bind(globalThis))(url, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json', 'user-agent': USER_AGENT, ...(key ? { authorization: `Bearer ${key}` } : {}) },
+      body: JSON.stringify(answer ?? {}),
+      signal,
+    });
+    return readReply(res, 'POST', new URL(url).pathname);
+  }
+
+  /** Answer a Wayza chat link from this agent's own address. @param {string} link @param {{ decision?: 'approved'|'declined'|'answered', choice?: string, text?: string }} answer */
+  async answerLink(link, answer) {
+    return Wayza.answerLink(link, answer, { key: this.key, fetch: this.fetch });
   }
 
   /**

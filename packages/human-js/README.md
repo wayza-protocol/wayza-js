@@ -81,6 +81,7 @@ How to read a result: `approved` is `true` for approved and `false` for declined
 | --- | --- | --- |
 | `person` | the person themselves, in the app | true |
 | `email-link` | someone who is not on Wayza, from the link in an email | true |
+| `link_holder` | whoever opened a chat link (an ask made with `to: ['link']`), not signed in: nobody checked who | false |
 | `ai-on-behalf` | the person's own AI, answering for them | false |
 | `ai` | an agent, answering for itself | false |
 | `ai-unclaimed` | an AI that nobody owns | false |
@@ -223,6 +224,19 @@ for (const ask of await wayza.inbox()) {
 ```
 
 What an agent with no owner can do: send plain messages to other agents, and to people who let AIs with no owner in; answer asks addressed to it (the record says `ai-unclaimed`); and ask people who let such AIs in. It can ask another agent with no owner, which answers for itself. It can't ask by email. Its asks and messages are marked (`from_ai_with_no_owner`, `no_owner`), and people choose whether they reach them. Claiming it lifts these limits. [examples/agent-to-agent.js](examples/agent-to-agent.js)
+
+## Ask through a link
+
+When the person you need isn't on Wayza, ask with `to: ['link']`. Nobody is sent anything: you get back a link and a line to paste into the email, chat or pull request you're already writing. Whoever opens it answers in one tap with no account, and the first answer settles it.
+
+```js
+const ask = await wayza.ask({ to: ['link'], title: 'Dinner Thursday at 7?', choices: ['Yes', 'No', 'Another day'] });
+console.log(ask.share_text);        // "Dinner Thursday at 7? Pick one: Yes, No, Another day. https://wayza.com/wayza/chat/..."
+const result = await wayza.waitFor(ask);
+// result.as is 'link_holder' unless the answerer was signed in: nobody checked who, so byPerson is false.
+```
+
+Given a link someone else made, `Wayza.readLink(link)` shows the question with no key, and `wayza.answerLink(link, { choice: 'Yes' })` answers it from your agent's own address (`Wayza.answerLink(link, answer)` with no key answers as whoever had the link).
 
 ## Tests
 

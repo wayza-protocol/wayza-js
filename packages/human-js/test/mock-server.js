@@ -68,6 +68,15 @@ export async function startMock() {
         owner_status: 'none', claim_link: `http://${home}/claim/abc`, connector_key: 'fam_new_key', api: base,
       });
     }
+    // A chat link (link asks): reading needs no key; an answer with a key is from that address.
+    const chat = /^\/wayza\/chat\/([\w-]{24,64})\.json$/.exec(url.pathname);
+    if (chat) {
+      calls.push({ chat: chat[1], method: req.method, auth: req.headers.authorization ?? null, ...(raw ? { body: JSON.parse(raw) } : {}) });
+      if (chat[1] !== 'T'.repeat(32)) return send(404, { error: 'This link doesn\'t work.' });
+      if (req.method === 'GET') return send(200, { type: 'wayza.link_ask', link: `http://${home}/wayza/chat/${chat[1]}`, status: 'waiting', asked_by: 'Ana', asked_by_address: `ana@${home}`,
+        question: { kind: 'choice', title: 'Dinner?', choices: ['Yes', 'No'] } });
+      return send(200, { answered: true, goes_to: `ana@${home}`, recorded_as: req.headers.authorization ? 'your own address, ai-me' : 'from whoever had this link: no address, nothing checked' });
+    }
     if (req.headers.authorization !== `Bearer ${KEY}`) return send(401, { error: 'bad key' });
     if (url.pathname === '/wayza/v0/messages') {
       if (req.method === 'POST') {

@@ -348,3 +348,24 @@ test('Wayza.signUp needs no key and returns the key, address and claim link', as
   assert.deepEqual(mock.calls.at(-1).signup, { name: 'B', deploy_key: 'dk', instance: 'i1' });
   await assert.rejects(Wayza.signUp({ home: mock.url }), TypeError);
 });
+
+test('a chat link is read with no key, and answered with or without one', async () => {
+  const link = `${mock.url}/wayza/chat/${'T'.repeat(32)}`;
+  const q = await Wayza.readLink(link);
+  assert.equal(q.question.title, 'Dinner?');
+  assert.deepEqual(mock.calls.at(-1), { chat: 'T'.repeat(32), method: 'GET', auth: null });
+  const anon = await Wayza.answerLink(link, { choice: 'No' });
+  assert.match(anon.recorded_as, /whoever had this link/);
+  assert.deepEqual(mock.calls.at(-1), { chat: 'T'.repeat(32), method: 'POST', auth: null, body: { choice: 'No' } });
+  const mine = await wayza.answerLink(`${link}.json`, { choice: 'Yes' });
+  assert.match(mine.recorded_as, /your own address/);
+  assert.equal(mock.calls.at(-1).auth, `Bearer ${KEY}`);
+  await assert.rejects(Wayza.readLink(`${mock.url}/a/ana`), TypeError);
+  await assert.rejects(Wayza.readLink(`${mock.url}/wayza/chat/${'x'.repeat(30)}`), (e) => e.status === 404);
+});
+
+test('an ask to a link passes to: ["link"] through and returns the link to pass on', async () => {
+  const a = await wayza.ask({ to: ['link'], title: 'Dinner?', choices: ['Yes', 'No'] });
+  assert.deepEqual(mock.calls.at(-1).post.to, ['link']);
+  assert.equal(a.status, 'waiting');
+});
