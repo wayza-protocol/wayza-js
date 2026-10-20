@@ -338,3 +338,21 @@ __all__ = [
     "amp_resume_payload",
     "amp_resume",
 ]
+
+
+# ---- tools: an address for a CrewAI agent ---------------------------------------------------
+
+def wayza_tools(key: str | None = None, *, name: str = "CrewAI agent", home: str | None = None,
+                key_file: str | None = None, sign_up: bool = True, account: Any = None) -> list:
+    """The Wayza tools for a CrewAI agent: ``Agent(..., tools=wayza_tools())``.
+
+    Each is a CrewAI tool built from its function's signature and docstring. With no key (``key``,
+    ``WAYZA_KEY`` or the key saved in ``~/.wayza/crewai.json``) the first tool that needs an address
+    signs the agent up and tells its person the claim link once. See ``wayza_human.tools``.
+    """
+    from crewai.tools import tool
+
+    from .tools import WayzaAccount, tool_functions
+
+    account = account or WayzaAccount(key, name=name, platform="crewai", home=home, key_file=key_file, sign_up=sign_up)
+    return [tool(fn.__name__)(fn) for fn in tool_functions(account)]

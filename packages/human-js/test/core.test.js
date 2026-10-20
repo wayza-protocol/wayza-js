@@ -338,13 +338,19 @@ test('messages reads the inbox with unread, after and a long-poll wait', async (
 
 test('Wayza.signUp needs no key and returns the key, address and claim link', async () => {
   const s = await Wayza.signUp({ name: 'Test agent', platform: 'node', home: mock.url });
-  assert.deepEqual(mock.calls.at(-1), { signup: { name: 'Test agent', platform: 'node' }, auth: null });
+  const { proof, ...signup } = mock.calls.at(-1).signup;
+  assert.deepEqual(signup, { name: 'Test agent', platform: 'node' });
+  assert.equal(mock.calls.at(-2), 'challenge');
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${proof.challenge}:${proof.nonce}`)));
+  assert.equal(d[0], 0, 'the proof has 8 leading zero bits');
   assert.equal(s.key, 'fam_new_key');
   assert.equal(s.address, '@ai-new');
   assert.equal(s.fullAddress, `ai-new@${mock.home}`);
   assert.equal(s.claimLink, `http://${mock.home}/claim/abc`);
   assert.equal(s.connector_key, 'fam_new_key');
+  const before = mock.calls.length;
   await Wayza.signUp({ name: 'B', deployKey: 'dk', instance: 'i1', home: mock.url });
+  assert.equal(mock.calls.length, before + 1, 'a deploy key needs no challenge');
   assert.deepEqual(mock.calls.at(-1).signup, { name: 'B', deploy_key: 'dk', instance: 'i1' });
   await assert.rejects(Wayza.signUp({ home: mock.url }), TypeError);
 });
@@ -362,6 +368,10 @@ test('a chat link is read with no key, and answered with or without one', async 
   assert.equal(mock.calls.at(-1).auth, `Bearer ${KEY}`);
   await assert.rejects(Wayza.readLink(`${mock.url}/a/ana`), TypeError);
   await assert.rejects(Wayza.readLink(`${mock.url}/wayza/chat/${'x'.repeat(30)}`), (e) => e.status === 404);
+  // A name's link on wayza.me reads from the same path plus .json.
+  await Wayza.readLink(`${mock.url}/ana/chat/${'T'.repeat(32)}`);
+  assert.deepEqual(mock.calls.at(-1), { chat: 'T'.repeat(32), method: 'GET', auth: null });
+  await assert.rejects(Wayza.readLink(`http://example.com/ana/chat/${'T'.repeat(32)}`), /must be https/);
 });
 
 test('an ask to a link passes to: ["link"] through and returns the link to pass on', async () => {

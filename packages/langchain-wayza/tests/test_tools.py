@@ -21,12 +21,14 @@ class ToolkitTests(unittest.TestCase):
         self.home = MockHome().start()
         self.dir = tempfile.TemporaryDirectory()
         self.key_file = os.path.join(self.dir.name, "wayza", "langchain.json")
-        self._env = {k: os.environ.pop(k, None) for k in ("WAYZA_KEY", "WAYZA_HOME", "WAYZA_DEPLOY_KEY")}
+        self._env = {k: os.environ.pop(k, None) for k in ("WAYZA_KEY", "WAYZA_HOME", "WAYZA_DEPLOY_KEY", "WAYZA_SIGN_UP")}
+        os.environ["WAYZA_SIGN_UP"] = "1"   # CI and containers count as hosted; these tests sign up anyway
 
     def tearDown(self):
         self.home.stop()
         self.dir.cleanup()
         for k, v in self._env.items():
+            os.environ.pop(k, None)
             if v is not None:
                 os.environ[k] = v
 
@@ -62,8 +64,9 @@ class ToolkitTests(unittest.TestCase):
         second = self.call(tools, "wayza_check_answer", id=str(first["id"]))
         self.assertNotIn("new_address", second)
         # A new toolkit finds the saved key: no second sign-up.
-        again = self.tools()
-        self.assertEqual(self.call(again, "wayza_my_address")["address"], note["address"])
+        mine = self.call(self.tools(), "wayza_my_address")
+        self.assertEqual(mine["address"], note["address"])
+        self.assertNotIn("claim_link", mine)
         self.assertEqual(len([r for r in self.home.requests if r[1] == "/wayza/v0/agents"]), 1)
 
     def test_no_sign_up_when_not_allowed(self):
@@ -99,6 +102,12 @@ class ToolkitTests(unittest.TestCase):
         self.assertEqual(self.home.requests[-1][2], {"choice": "8pm"})
         late = me["wayza_answer_link"].invoke({"link": made["link"], "answer": "7pm"})
         self.assertIn("Wayza: 409", late)
+
+    def test_the_key_never_goes_to_a_link_on_another_host(self):
+        n = len(self.home.requests)
+        out = self.tools(key="fam_bot")["wayza_answer_link"].invoke({"link": "https://evil.example/ana/chat/" + "T" * 32, "answer": "Yes"})
+        self.assertIn("Not a Wayza link", out)
+        self.assertEqual(self.home.requests[n:], [])
 
     def test_not_a_chat_link(self):
         out = self.tools(key="fam_bot")["wayza_read_link"].invoke({"link": "https://example.com/ana"})

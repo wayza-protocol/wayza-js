@@ -59,6 +59,10 @@ export async function startMock() {
     }
     let raw = '';
     for await (const c of req) raw += c;
+    if (url.pathname === '/wayza/v0/agents/challenge' && req.method === 'GET') {
+      calls.push('challenge');
+      return send(200, { challenge: `c${calls.length}`, bits: 8 });
+    }
     if (url.pathname === '/wayza/v0/agents' && req.method === 'POST') {
       const b = JSON.parse(raw || '{}');
       calls.push({ signup: b, auth: req.headers.authorization ?? null });
@@ -69,7 +73,7 @@ export async function startMock() {
       });
     }
     // A chat link (link asks): reading needs no key; an answer with a key is from that address.
-    const chat = /^\/wayza\/chat\/([\w-]{24,64})\.json$/.exec(url.pathname);
+    const chat = /^\/(?:wayza|[a-z0-9-]+)\/chat\/([\w-]{24,64})\.json$/.exec(url.pathname);
     if (chat) {
       calls.push({ chat: chat[1], method: req.method, auth: req.headers.authorization ?? null, ...(raw ? { body: JSON.parse(raw) } : {}) });
       if (chat[1] !== 'T'.repeat(32)) return send(404, { error: 'This link doesn\'t work.' });
@@ -77,7 +81,8 @@ export async function startMock() {
         question: { kind: 'choice', title: 'Dinner?', choices: ['Yes', 'No'] } });
       return send(200, { answered: true, goes_to: `ana@${home}`, recorded_as: req.headers.authorization ? 'your own address, ai-me' : 'from whoever had this link: no address, nothing checked' });
     }
-    if (req.headers.authorization !== `Bearer ${KEY}`) return send(401, { error: 'bad key' });
+    // KEY, or the key a sign-up just gave out.
+    if (![`Bearer ${KEY}`, 'Bearer fam_new_key'].includes(req.headers.authorization)) return send(401, { error: 'bad key' });
     if (url.pathname === '/wayza/v0/messages') {
       if (req.method === 'POST') {
         const b = JSON.parse(raw || '{}');
@@ -129,6 +134,7 @@ export async function startMock() {
         expires_at: b.expires_at ?? null, callback: b.callback ?? null,
         people: [b.to].flat().map((to) => ({ to, person: String(to).split('@')[0] || to, decision: 'waiting', choice: null, text: null, as: null, at: null })),
       };
+      if (String(b.to) === 'link') Object.assign(a, { link: `http://${home}/wayza/chat/${'T'.repeat(32)}`, share_text: `${b.title} Answer here: http://${home}/wayza/chat/${'T'.repeat(32)}` });
       approvals.set(id, a);
       if (api.onAsk) {
         const reply = api.onAsk(view(a));

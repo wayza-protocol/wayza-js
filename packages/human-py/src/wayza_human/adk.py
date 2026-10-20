@@ -267,3 +267,19 @@ __all__ = [
     "ask_confirmations",
     "resume_confirmations",
 ]
+
+
+# ---- tools: an address for an ADK agent ------------------------------------------------------
+
+def wayza_tools(key: str | None = None, *, name: str = "ADK agent", home: str | None = None,
+                key_file: str | None = None, sign_up: bool = True, account: Any = None) -> list:
+    """The Wayza tools for an ADK agent, as plain functions: ``Agent(..., tools=wayza_tools())``.
+
+    ADK builds each tool from its signature and docstring. With no key (``key``, ``WAYZA_KEY`` or the
+    key saved in ``~/.wayza/adk.json``) the first tool that needs an address signs the agent up and
+    tells its person the claim link once. See ``wayza_human.tools``.
+    """
+    from .tools import WayzaAccount, tool_functions
+
+    account = account or WayzaAccount(key, name=name, platform="adk", home=home, key_file=key_file, sign_up=sign_up)
+    return tool_functions(account)

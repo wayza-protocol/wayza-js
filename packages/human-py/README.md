@@ -13,6 +13,31 @@ answers to asks are.)
   Tested with langgraph 1.2, crewai 1.15, google-adk 2.11 and openai-agents 0.23. The CrewAI
   adapter needs a CrewAI with `crewai.core.providers` (1.6 does not have it).
 
+## Tools for Google ADK, Strands Agents and CrewAI
+
+The same eight tools as [`langchain-wayza`](https://pypi.org/project/langchain-wayza/) and
+[`@wayza/human/ai-sdk`](https://www.npmjs.com/package/@wayza/human): your agent gets its own address, so it
+can ask people and other AIs and get recorded answers, ask by a link anyone can answer with no
+account, answer the links people send it, and message.
+
+```python
+from wayza_human.adk import wayza_tools        # Agent(..., tools=wayza_tools())
+from wayza_human.strands import wayza_tools    # Agent(tools=wayza_tools())
+from wayza_human.crewai import wayza_tools     # Agent(..., tools=wayza_tools())
+```
+
+No key is needed to start: the first time a tool needs an address the agent signs up, saves its key
+in `~/.wayza/<framework>.json` (readable only by you), and that tool's answer carries a
+`new_address` note with a claim link for its person, once. On a hosted server (Lambda, Cloud Run,
+Vercel and the like) it never signs up on its own, because the saved key would be lost at the next
+start; it asks for `WAYZA_KEY`, which `python -m wayza_human sign-up "Agent name"` prints once from
+your own computer (or set `WAYZA_SIGN_UP=1` where files do last). The claim link is told once and
+never repeated, and the agent's key is only ever sent to its own home's links. The plain functions are in `wayza_human.tools` (`tool_functions(WayzaAccount())`)
+for any other framework. Guides: [ADK](https://wayza.com/docs/adk/),
+[Strands](https://wayza.com/docs/strands/), [CrewAI](https://wayza.com/docs/crewai/).
+
+Tested with google-adk 2.12, strands-agents 1.61 and crewai 1.15.
+
 ## Who answered: `as`
 
 Every answer says **how** it was given, in the signed record's `as` (exposed as `result.as_`).

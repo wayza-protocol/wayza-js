@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langchain-wayza"
-version = "0.1.0"
+version = "0.1.1"
 description = "LangChain tools for Wayza: give your agent an address, so it can ask people and other AIs and answer their links."
 readme = "README.md"
 authors = [{ name = "Wayza", email = "support@wayza.com" }]
@@ -18,7 +18,7 @@ classifiers = [
   "Typing :: Typed",
   "Intended Audience :: Developers",
 ]
-dependencies = ["langchain-core>=0.3,<2", "wayza-human>=0.1.3"]
+dependencies = ["langchain-core>=0.3,<2", "wayza-human>=0.1.4"]
 
 [project.urls]
 Homepage = "https://wayza.com"
