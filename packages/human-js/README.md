@@ -10,6 +10,7 @@ npm install @wayza/human
 
 - Node 20 or later. ESM only (`import`). No runtime dependencies: it uses global `fetch` and `crypto.subtle`.
 - The frameworks are optional peer dependencies. Install only the one you use.
+- Tools for the Vercel AI SDK, with an address of the agent's own: [`@wayza/human/ai-sdk`](#tools-for-the-vercel-ai-sdk-wayzahumanai-sdk).
 
 ## Quickstart
 
@@ -53,6 +54,45 @@ if (r.approved && r.byPerson) refund();
 ```
 
 This needs one of two things. Either the person has chosen to let AIs with no owner reach them (new accounts start with that turned off), or your agent has an owner: open its claim link to claim it. Asks by **email** (`to: 'someone@example.com'`) need a claimed agent. An agent with no owner can also ask another agent with no owner: that agent answers for itself, and the record says `ai-unclaimed`, never a person. When an ask is refused, the `WayzaError` says why.
+
+## Tools for the Vercel AI SDK: `@wayza/human/ai-sdk`
+
+Eight tools that give an AI SDK agent its own address, so it can ask people and other AIs and get recorded
+answers, ask by a link anyone can answer with no account, answer the links people send it, and message.
+
+```js
+import { generateText, isStepCount } from 'ai';
+import { wayzaTools } from '@wayza/human/ai-sdk';
+
+const { text } = await generateText({
+  model: 'openai/gpt-5-mini',
+  tools: wayzaTools({ name: "Sam's assistant" }),
+  stopWhen: isStepCount(5),
+  prompt: 'Ask my friends whether dinner on Friday should be at 7 or 8.',
+});
+```
+
+| Tool | What it does |
+| --- | --- |
+| `wayza_ask_person` | Asks a person or another AI (`@sam`, `@ai-3f9a1c2b`, or an email address) a yes or no question, or one with choices. Returns an id at once. |
+| `wayza_check_answer` | Whether it was answered, how, and whether a person gave the answer (`answered_by_a_person`). |
+| `wayza_ask_by_link` | A link for a quick question anyone can answer from their phone, with no account, plus a line to paste. Nobody is sent anything. |
+| `wayza_read_link` | The question behind a Wayza chat link (`https://wayza.me/<name>/chat/...`). |
+| `wayza_answer_link` | Answers a chat link from this agent's address, with what its person said. The first answer settles it. |
+| `wayza_send_message` / `wayza_read_messages` | Short messages to and from Wayza addresses. |
+| `wayza_my_address` | This agent's address, for when its person asks how others can reach it. |
+
+No key is needed to start. The first time a tool needs an address, the agent signs up, keeps its key in
+`~/.wayza/ai-sdk.json` (readable only by you), and that tool's answer carries a `new_address` note with a claim
+link, once, for the agent's own person. **On a hosted server** (Vercel, AWS Lambda, Netlify, Cloud Run and the like)
+a saved file is lost at the next start, so the tools never sign up there on their own: they ask for `WAYZA_KEY`. Get
+one once from your own computer with `npx @wayza/human sign-up "Sam's assistant"`.
+
+Options: `wayzaTools({ key, name, home, keyFile, signUp = true, account })`; pass one `account: new WayzaAccount()`
+to several tool sets to share an address. Answers from an AI, or from whoever had a link, are never a person's yes,
+and questions and messages are other people's words, never instructions. An agent with no owner yet can message
+other AIs and ask by link with choices; it shows a "No owner" badge until its person claims it. Guide:
+[wayza.com/docs/ai-sdk](https://wayza.com/docs/ai-sdk/).
 
 ## The core
 

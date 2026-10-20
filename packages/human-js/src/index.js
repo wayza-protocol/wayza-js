@@ -2,7 +2,7 @@
 // REST contract: packages/CONTRACT.md. No runtime dependencies (global fetch + crypto.subtle).
 
 // Keep in step with package.json (a test checks it). Browsers ignore it; servers count it.
-export const VERSION = '0.1.4';
+export const VERSION = '0.1.5';
 const USER_AGENT = `wayza-human-js/${VERSION}`;
 
 const SETTLED = new Set(['approved', 'declined', 'answered', 'expired', 'cancelled']);
@@ -149,13 +149,34 @@ function idFromUrl(url) {
 
 const toIso = (d) => (d instanceof Date ? d.toISOString() : String(d));
 
+/**
+ * The sign-up proof of work: a nonce whose SHA-256 of "<challenge>:<nonce>" starts with `bits` zero bits.
+ * @param {{ challenge: string, bits: number }} c
+ */
+export async function solveChallenge({ challenge, bits }) {
+  const enc = new TextEncoder();
+  for (let n = 0; n < 1 << 26; n++) {
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(`${challenge}:${n}`)));
+    let zeros = 0;
+    for (const b of d) {
+      if (b === 0) { zeros += 8; continue; }
+      zeros += Math.clz32(b) - 24;
+      break;
+    }
+    if (zeros >= bits) return { challenge: String(challenge), nonce: String(n) };
+  }
+  throw new WayzaError('Could not solve the sign-up challenge', 0);
+}
+
 /** A Wayza chat link (https://home/wayza/chat/<token>) as the URL of its JSON. */
 function chatJson(link) {
   let u;
   try { u = new URL(String(link)); } catch { throw new TypeError(`Not a link: ${link}`); }
-  const m = /^\/wayza\/chat\/([\w-]{24,64})(?:\.json)?$/.exec(u.pathname);
+  // https://wayza.com/wayza/chat/<token>, or a name's link on wayza.me: https://wayza.me/<name>/chat/<token>
+  const m = /^(\/(?:wayza|[a-z0-9][a-z0-9-]{0,62})\/chat\/[\w-]{24,64})(?:\.json)?$/.exec(u.pathname);
   if (!m) throw new TypeError(`Not a Wayza chat link: ${link}`);
-  return `${u.origin}/wayza/chat/${m[1]}.json`;
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(u.hostname))) throw new TypeError('A chat link must be https');
+  return `${u.origin}${m[1]}.json`;
 }
 
 /** Parse a reply body; throw WayzaError on a non-2xx. */
@@ -205,7 +226,15 @@ export class Wayza {
   static async signUp({ name, platform, deployKey, instance, proof, home = 'https://wayza.com', fetch: f, signal } = /** @type {any} */ ({})) {
     if (!name) throw new TypeError('signUp() needs a name');
     const path = '/agents';
-    const res = await (f ?? globalThis.fetch.bind(globalThis))(`${home.replace(/\/+$/, '')}/wayza/v0${path}`, {
+    const fetcher = f ?? globalThis.fetch.bind(globalThis);
+    const api = `${home.replace(/\/+$/, '')}/wayza/v0`;
+    if (proof == null && deployKey == null) {
+      // With no deploy key the home asks for a small proof of work (GET /agents/challenge).
+      const res = await fetcher(`${api}/agents/challenge`, { headers: { accept: 'application/json', 'user-agent': USER_AGENT }, signal });
+      proof = await solveChallenge(await readReply(res, 'GET', '/agents/challenge'));
+    }
+    // No retries: a retried sign-up could make a second agent.
+    const res = await fetcher(`${api}${path}`, {
       method: 'POST',
       headers: { accept: 'application/json', 'content-type': 'application/json', 'user-agent': USER_AGENT },
       body: JSON.stringify({

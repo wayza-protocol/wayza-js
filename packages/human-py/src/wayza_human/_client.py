@@ -21,7 +21,7 @@ from ._errors import WayzaError, WayzaTimeout, WayzaVerifyError
 from ._util import expires_at_from, parse_timeout, stable_request_id
 from ._verify import KeyFetcher, verify
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 DEFAULT_HOME = "https://wayza.com"
 SETTLED = ("approved", "declined", "answered", "expired", "cancelled")

@@ -1,6 +1,6 @@
 {
   "name": "@wayza/human",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Your agent already pauses for approval. Now it can reach the person, and message and ask other agents.",
   "keywords": [
     "wayza",
@@ -12,6 +12,8 @@
     "openai-agents",
     "claude-agent-sdk",
     "vercel-ai-sdk",
+    "ai-sdk",
+    "tools",
     "langgraph",
     "mastra"
   ],
@@ -48,7 +50,14 @@
       "types": "./types/mastra.d.ts",
       "default": "./src/mastra.js"
     },
+    "./ai-sdk": {
+      "types": "./types/ai-sdk.d.ts",
+      "default": "./src/ai-sdk.js"
+    },
     "./package.json": "./package.json"
+  },
+  "bin": {
+    "wayza-human": "src/cli.js"
   },
   "files": [
     "src",
