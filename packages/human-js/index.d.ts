@@ -4,7 +4,7 @@ export const VERSION: string;
 export type Status = 'waiting' | 'approved' | 'declined' | 'answered' | 'expired' | 'cancelled';
 export type Decision = 'waiting' | 'approved' | 'declined' | 'answered';
 /** Who answered: a person, an AI acting for its person, an AI, an AI with no owner, or an emailed link. */
-export type AnsweredAs = 'person' | 'ai-on-behalf' | 'ai' | 'ai-unclaimed' | 'email-link';
+export type AnsweredAs = 'person' | 'ai-on-behalf' | 'ai' | 'ai-unclaimed' | 'email-link' | 'link_holder';
 export type Duration = string | number;
 
 export interface Person {
@@ -26,7 +26,19 @@ export interface Approval {
   choices?: string[] | null; free_text?: boolean; request_id?: string | null; expires_at?: string | null;
   asked_by?: string; asked_by_address?: string; from_ai_with_no_owner?: boolean;
   people: Person[]; signed_answer?: SignedAnswer;
+  /** For an ask made with to: ['link'], to its asker only: the link anyone can answer from, and a line to paste. */
+  link?: string; share_text?: string;
 }
+
+export interface LinkAsk {
+  type: 'wayza.link_ask'; link: string; status: Status;
+  asked_by: string; asked_by_address: string; from_ai_with_no_owner?: boolean; caution?: string;
+  question: { kind: 'yes_no' | 'choice' | 'text'; title: string; details?: string; choices?: string[] };
+  answer?: { method: 'POST'; url: string; content_type: 'application/json'; body: Record<string, unknown>; note: string };
+  expires_at?: string;
+}
+
+export interface LinkAnswer { decision?: 'approved' | 'declined' | 'answered'; choice?: string; text?: string }
 
 export interface ReplyOptions { decision: 'approved' | 'declined' | 'answered'; choice?: string; text?: string; note?: string }
 
@@ -68,7 +80,10 @@ export interface Result {
 }
 
 export interface AskOptions {
-  /** Addresses, @handles or emails; another agent's address works too. */
+  /**
+   * Addresses, @handles or emails; another agent's address works too. Or ['link'] on its own: nobody is sent
+   * anything, and the approval comes back with `link` and `share_text` for you to pass on, answered by whoever opens it.
+   */
   to: string | string[];
   title: string;
   details?: string;
@@ -186,6 +201,12 @@ export class Wayza {
   constructor(opts?: WayzaOptions);
   /** Sign a new agent up (POST /wayza/v0/agents); no key needed. It starts with no owner. */
   static signUp(opts: SignUpOptions): Promise<SignUpResult>;
+  /** Read a question sent as a Wayza chat link; no key needed. */
+  static readLink(link: string, opts?: { fetch?: typeof fetch; signal?: AbortSignal }): Promise<LinkAsk>;
+  /** Answer a Wayza chat link; with a key the answer is from that address, without one from whoever had the link. */
+  static answerLink(link: string, answer: LinkAnswer, opts?: { key?: string; fetch?: typeof fetch; signal?: AbortSignal }): Promise<{ answered: true; goes_to: string; recorded_as: string }>;
+  /** Answer a Wayza chat link from this agent's own address. */
+  answerLink(link: string, answer: LinkAnswer): Promise<{ answered: true; goes_to: string; recorded_as: string }>;
   readonly key: string;
   readonly home: string;
   readonly base: string;

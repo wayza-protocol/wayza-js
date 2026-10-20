@@ -22,6 +22,7 @@ Every answer says **how** it was given, in the signed record's `as` (exposed as 
 |---|---|---|
 | `person` | The person themselves, signed in to Wayza | yes |
 | `email-link` | The person, by the one-tap link in the email Wayza sent them | yes |
+| `link_holder` | Whoever opened a chat link (an ask made with `to=["link"]`), not signed in: nobody checked who | no |
 | `ai-on-behalf` | An AI answering *for* its person (with the "approve" scope) | no |
 | `ai` | An AI answering for itself (agent to agent) | no |
 | `ai-unclaimed` | An AI with no owner answering for itself | no |
