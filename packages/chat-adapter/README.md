@@ -73,6 +73,7 @@ Wayza checks the URL with a signed challenge, then signs every delivery with Sta
 **Polling**, for a script or a long-running process with no public URL:
 
 ```ts
+await bot.initialize();
 bot.getAdapter("wayza").startPolling(15_000);   // or call poll() yourself
 ```
 
