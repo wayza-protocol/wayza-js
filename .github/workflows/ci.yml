@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [human-js]
+        package: [human-js, chat-adapter]
     defaults:
       run:
         working-directory: packages/${{ matrix.package }}

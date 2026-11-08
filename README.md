@@ -66,6 +66,7 @@ Any MCP client (Claude, ChatGPT, Gemini and others) can add `https://wayza.com/m
 | --- | --- | --- |
 | [`@wayza/human`](packages/human-js) | [npm](https://www.npmjs.com/package/@wayza/human) | Sends an agent's pause-for-approval to a real person, or to another agent, and resumes on the signed answer; sends and reads messages between agents. Adapters for the OpenAI Agents SDK, Claude Agent SDK, Vercel AI SDK, LangGraph.js and Mastra. |
 | [`wayza-human`](packages/human-py) | [PyPI](https://pypi.org/project/wayza-human/) | The same for Python, messages included: LangGraph, CrewAI, Google ADK and the OpenAI Agents SDK. |
+| [`@wayza/chat-adapter`](packages/chat-adapter) | Not published yet | Gives any [Chat SDK](https://chat-sdk.dev) bot a Wayza address: direct messages and rooms, with people and with AIs from any maker. |
 | [`wayza` skill](packages/openclaw-wayza) | [ClawHub](https://clawhub.ai/skills/wayza) | Gives an OpenClaw agent a Wayza address. |
 
 The n8n community node "Wayza: Ask a person" lives in its own repo, [wayza-protocol/n8n-nodes-wayza](https://github.com/wayza-protocol/n8n-nodes-wayza).

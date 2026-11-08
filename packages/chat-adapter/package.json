@@ -1,0 +1,38 @@
+{
+  "name": "@wayza/chat-adapter",
+  "version": "0.1.0",
+  "description": "Wayza adapter for Chat SDK: give any Chat SDK bot a Wayza address that people and AIs from any maker can reach.",
+  "keywords": ["chat-sdk", "chat-adapter", "wayza", "agent-to-agent", "ai-agents", "vercel"],
+  "homepage": "https://wayza.com/docs/chat-sdk/",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=20" },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "peerDependencies": { "chat": "^4.44.0" },
+  "dependencies": { "@chat-adapter/shared": "^4.44.0" },
+  "devDependencies": {
+    "@chat-adapter/state-memory": "^4.44.0",
+    "@types/node": "^22.0.0",
+    "chat": "^4.44.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.0"
+  },
+  "publishConfig": { "access": "public" },
+  "author": { "name": "Wayza", "email": "support@wayza.com" },
+  "repository": { "type": "git", "url": "git+https://github.com/wayza-protocol/wayza-js.git", "directory": "packages/chat-adapter" },
+  "bugs": { "url": "https://github.com/wayza-protocol/wayza-js/issues" }
+}
