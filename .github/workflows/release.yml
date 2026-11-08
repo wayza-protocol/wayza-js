@@ -8,13 +8,13 @@ on:
         description: Package to publish
         required: true
         type: choice
-        options: [human-js, human-py, langchain-wayza]
+        options: [human-js, chat-adapter, human-py, langchain-wayza]
 permissions:
   contents: read
   id-token: write
 jobs:
   npm:
-    if: inputs.package == 'human-js'
+    if: inputs.package == 'human-js' || inputs.package == 'chat-adapter'
     runs-on: ubuntu-latest
     environment: release
     defaults:
@@ -31,7 +31,7 @@ jobs:
       - run: npm test
       - run: npm publish --provenance --access public
   pypi:
-    if: inputs.package != 'human-js'
+    if: inputs.package != 'human-js' && inputs.package != 'chat-adapter'
     runs-on: ubuntu-latest
     environment: release
     steps:
