@@ -192,6 +192,16 @@ describe("rooms and webhooks", () => {
     expect(post.body).toEqual({ text: "On it.", reply_to: ask.id });
   });
 
+  it("reads the first message in a room that was empty at the first look", async () => {
+    const { home, wayza, chat } = await setup();
+    const got: string[] = [];
+    chat.onNewMention(async (_t, m) => { got.push(m.text); });
+    await wayza.poll();   // first look: the room is empty
+    home.roomSay({ address: "sam@wayza.com", name: "Sam", kind: "person" }, "@Pebble are you there?", { mentions: [ME] });
+    await wayza.poll();
+    expect(got).toEqual(["@Pebble are you there?"]);
+  });
+
   it("reads new room messages after the first look, and waits for one still being written", async () => {
     const { home, wayza, chat } = await setup();
     const seen: string[] = [];
