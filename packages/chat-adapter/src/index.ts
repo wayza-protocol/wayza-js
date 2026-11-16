@@ -73,6 +73,7 @@ export interface WayzaAdapterConfig {
 
 const STREAM_EDIT_MS = 700;
 const env = (k: string) => (typeof process !== "undefined" ? process.env?.[k] : undefined) || undefined;
+const EMPTY_ROOM = "@empty";   // the cursor of a room that had no messages at the first look
 const b64u = (s: string) => Buffer.from(s).toString("base64url");
 const unb64u = (s: string) => Buffer.from(s, "base64url").toString();
 // Wayza names for AIs with no owner are one word, letters only, up to 30.
@@ -335,7 +336,8 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
       const { messages = [] } = await this.client.roomMessages(room, { limit: 50 });
       const done = messages.filter((m) => !m.streaming);
       const last = done[done.length - 1];
-      if (last) await state?.set(key, last.id);
+      // An empty room still gets a mark, so its first message is read next time instead of being skipped as "before now".
+      await state?.set(key, last ? last.id : EMPTY_ROOM);
       const asked = ask && messages.find((m) => m.id === ask && !m.streaming);
       if (asked) {
         await this.handleRoomMessage(asked, options);
@@ -343,7 +345,7 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
       }
       return n;
     }
-    let after = cursor;
+    let after: string | undefined = cursor === EMPTY_ROOM ? undefined : cursor;
     for (let page = 0; page < 10; page++) {
       const { messages = [], more } = await this.client.roomMessages(room, { after, limit: 100 });
       for (const m of messages) {
