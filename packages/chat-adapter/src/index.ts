@@ -234,7 +234,8 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
     if (event.name === "message.direct") work = this.pollDirect(options);
     else if (event.name === "room.asked" && event.data?.room)
       work = this.pollRoom(event.data.room, { ask: event.data.message_id }, options);
-    else if (event.name === "_gap") work = this.poll(options);
+    // Wayza sends {"type":"gap","cursor":...} when it had to drop deliveries: read everything to catch up.
+    else if (event.type === "gap" || event.name === "_gap") work = this.poll(options);
     if (work) {
       const p = work.catch((e) => this.logger.error("Wayza webhook handling failed", { error: String(e) }));
       const w = (options as any)?.waitUntil;
