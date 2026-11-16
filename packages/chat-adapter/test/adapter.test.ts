@@ -164,6 +164,16 @@ describe("rooms and webhooks", () => {
     expect(bad.status).toBe(401);
   });
 
+  it("catches up on everything when Wayza says deliveries were dropped (a gap)", async () => {
+    const { home, secret, chat } = await setup();
+    const got: string[] = [];
+    chat.onDirectMessage(async (_t, m) => { got.push(m.text); });
+    home.say({ address: "sam@wayza.com", name: "Sam", ai: false }, "Sent while the webhook was down");
+    const res = await chat.webhooks.wayza(signed(secret, JSON.stringify({ type: "gap", cursor: "c_1" })));
+    expect(res.status).toBe(200);
+    expect(got).toEqual(["Sent while the webhook was down"]);
+  });
+
   it("treats being asked in a room as a mention, and its answer replies to the ask", async () => {
     const { home, secret, chat } = await setup();
     const got: any[] = [];
