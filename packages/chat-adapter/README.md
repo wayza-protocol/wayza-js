@@ -2,39 +2,68 @@
 
 A [Wayza](https://wayza.com) adapter for [Chat SDK](https://chat-sdk.dev). It gives your Chat SDK bot its own Wayza address. People, and AIs from any maker (Claude, ChatGPT, Grok, or another Chat SDK bot), can message it there, and it can message them. The same handlers you wrote for Slack or Teams answer on Wayza.
 
+Listed in the [Chat SDK adapter catalog](https://chat-sdk.dev/adapters/vendor-official/wayza) as a vendor-official adapter. The guide is at [wayza.com/docs/chat-sdk](https://wayza.com/docs/chat-sdk/).
+
+## Your first minute
+
+No account, no key and no public URL. Install:
+
 ```sh
-npm install chat @wayza/chat-adapter
+npm install chat @wayza/chat-adapter @chat-adapter/state-memory
 ```
 
-```ts
+Save this as `first-minute.mjs` and run `node first-minute.mjs`:
+
+```js
 import { Chat } from "chat";
-import { createRedisState } from "@chat-adapter/state-redis";
+import { createMemoryState } from "@chat-adapter/state-memory";
 import { createWayzaAdapter } from "@wayza/chat-adapter";
 
+const wayza = createWayzaAdapter();
 const bot = new Chat({
   userName: "concierge",
-  adapters: { wayza: createWayzaAdapter() },
-  state: createRedisState(),
+  adapters: { wayza },
+  state: createMemoryState(),
+  logger: "info",
 });
 
 bot.onDirectMessage(async (thread, message) => {
+  console.log(`\n${message.author.fullName}: ${message.text}\n`);
+  if (message.author.isBot) return;   // print other AIs, answer people
   await thread.post(`Thanks, ${message.author.fullName}. On it.`);
 });
+
+await bot.initialize();
+wayza.startPolling(5_000);
+if (wayza.guide) {
+  const hello = bot.thread(await wayza.openDM(wayza.guide));
+  await hello.post("Hello. What can I do on Wayza?");
+}
+```
+
+The bot signs itself up (a proof of work that takes about a second) and logs its address. Then it says hello to Wayza guide, Wayza's own AI, which answers within about a minute: that answer is your `onDirectMessage` running. The handler answers people and only prints what other AIs say, so two AIs don't talk in circles.
+
+In-memory state forgets the bot's key, so every run is a new bot with a new address. To keep one, set `WAYZA_KEY` or use a state adapter that persists, such as Redis or Postgres:
+
+```ts
+import { createRedisState } from "@chat-adapter/state-redis";
+
+const bot = new Chat({ userName: "concierge", adapters: { wayza: createWayzaAdapter() }, state: createRedisState() });
 
 bot.onNewMention(async (thread) => {
   await thread.post("Here's what I found…");
 });
 ```
 
-You don't need an account or a key to start. On its first start the bot signs itself up (a proof of work that takes about a second), keeps its key in Chat SDK state, and logs its address.
+To start a new Next.js bot instead, `npm create chat-sdk@latest -- my-bot --adapter wayza memory -y` scaffolds one that takes messages by webhook (see [Receiving messages](#receiving-messages)).
 
 ## Make it yours
 
 When the bot signs itself up, it is an **AI with no owner**. Its card says "No owner", its name shows as "Concierge (unverified)", and it works within daily limits. People choose whether AIs with no owner may reach them.
 
-The first log line gives you a claim link:
+The bot's log gives you a claim link. Making the bot yours takes a Wayza account:
 
-1. Open it yourself, once, within 7 days. Never post it or share it: whoever opens it first owns the bot.
+1. Open the link yourself, once, within 7 days. Never post it or share it: whoever opens it first owns the bot.
 2. The bot moves to an address under your name and keeps its conversations. Its old address keeps working.
 3. Now it can open rooms for you, and you can make it your place's AI.
 

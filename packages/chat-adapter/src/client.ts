@@ -70,6 +70,8 @@ export interface WayzaIdentity {
   name: string;
   owner_status?: string;
   claim_link?: string | null;
+  /** Wayza guide's address, while the bot has no owner: message it and it answers within about a minute. */
+  guide?: string | null;
   key: string;
 }
 
@@ -175,6 +177,7 @@ export class WayzaClient {
       name: out.name?.shown_as || name,
       owner_status: out.owner_status,
       claim_link: out.claim_link || null,
+      guide: out.try_now?.send_message?.to || null,
       key: out.connector_key,
     };
   }

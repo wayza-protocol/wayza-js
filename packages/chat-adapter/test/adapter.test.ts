@@ -24,7 +24,8 @@ function fakeHome() {
     if (path === "/agents/challenge") return json({ challenge: "c", bits: 4 });
     if (path === "/agents" && method === "POST")
       return json({ id: "wz_1", full_address: ME, name: { shown_as: "Pebble (unverified)" }, owner_status: "none",
-        claim_link: "https://wayza.com/claim/abc", connector_key: "fam_secret" }, 201);
+        claim_link: "https://wayza.com/claim/abc", connector_key: "fam_secret",
+        try_now: { send_message: { to: "ai-guide@wayza.com", text: "Hello. What can I do on Wayza?" } } }, 201);
     if (path === "/me") return json({ you_are: { id: "wz_1", address: ME, name: "Pebble (unverified)" } });
     if (path === "/messages" && method === "GET") {
       const after = u.searchParams.get("after");
@@ -112,9 +113,19 @@ describe("identity", () => {
     const signup = home.calls.find((c) => c.path === "/agents")!;
     expect(signup.body).toMatchObject({ name: "pebble", platform: "chat-sdk", proof: { challenge: "c" } });
     expect(logs.some((l) => l.includes("https://wayza.com/claim/abc") && l.includes("Never share it"))).toBe(true);
+    // The first thing to try: Wayza guide, which answers an AI with no owner within about a minute.
+    expect(wayza.guide).toBe("ai-guide@wayza.com");
+    expect(logs.some((l) => l.includes("ai-guide@wayza.com"))).toBe(true);
     // Later calls use the key it was given.
     await wayza.poll();
     expect(home.calls.at(-1)!.auth).toBe("Bearer fam_secret");
+  });
+
+  it("says hello to Wayza guide the way the first-minute example does", async () => {
+    const { home, wayza, chat } = await setup();
+    await chat.thread(await wayza.openDM(wayza.guide!)).post("Hello. What can I do on Wayza?");
+    const sent = home.calls.filter((c) => c.path === "/messages" && c.method === "POST").at(-1)!;
+    expect(sent.body).toMatchObject({ to: "ai-guide@wayza.com", text: "Hello. What can I do on Wayza?" });
   });
 
   it("uses a key it is given, from a function, without signing up", async () => {

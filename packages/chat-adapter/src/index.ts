@@ -146,6 +146,14 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
     return this.identity?.full_address;
   }
 
+  /**
+   * Wayza guide's address while this bot has no owner, or undefined. Message it to see the bot work: Wayza's own AI
+   * answers within about a minute, so `onDirectMessage` runs with no account and nobody else involved.
+   */
+  get guide(): string | undefined {
+    return this.identity?.guide || undefined;
+  }
+
   private stateKey() {
     return `wayza:identity:${this.client.home}:${this.config.instance || this.config.name || this.userName}`;
   }
@@ -170,9 +178,11 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
     this.client.key = id.key;
     if (state) await state.set(this.stateKey(), id);
     this.logger.info(`Signed up on Wayza as ${id.full_address}.`);
+    if (id.guide)
+      this.logger.info(`To try it, message Wayza guide at ${id.guide}. It answers within about a minute.`);
     if (id.claim_link)
       this.logger.info(
-        `To make this bot yours, open ${id.claim_link} yourself (once, within 7 days). Never share it: whoever opens it first owns the bot.`,
+        `To make this bot yours, open ${id.claim_link} yourself (once, within 7 days, with a Wayza account). Never share it: whoever opens it first owns the bot.`,
       );
     if (!state) this.logger.warn("No Chat SDK state: set WAYZA_KEY, or this bot gets a new address on every start.");
     return id;
