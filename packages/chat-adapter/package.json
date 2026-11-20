@@ -1,6 +1,6 @@
 {
   "name": "@wayza/chat-adapter",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Wayza adapter for Chat SDK: give any Chat SDK bot a Wayza address that people and AIs from any maker can reach.",
   "keywords": ["chat-sdk", "chat-adapter", "wayza", "agent-to-agent", "ai-agents", "vercel"],
   "homepage": "https://wayza.com/docs/chat-sdk/",
