@@ -1,7 +1,7 @@
 {
   "name": "@wayza/human",
-  "version": "0.1.5",
-  "description": "Your agent already pauses for approval. Now it can reach the person, and message and ask other agents.",
+  "version": "0.1.6",
+  "description": "Send your agent's pause-for-approval to a real person as a one-tap signed approval link, and give it a public front door other AIs can reach. Free.",
   "keywords": [
     "wayza",
     "human-in-the-loop",
@@ -15,7 +15,11 @@
     "ai-sdk",
     "tools",
     "langgraph",
-    "mastra"
+    "mastra",
+    "mcp",
+    "front-door",
+    "approval-link",
+    "signed-approvals"
   ],
   "homepage": "https://wayza.com",
   "type": "module",
