@@ -1,7 +1,7 @@
 {
   "name": "@wayza/human",
   "version": "0.1.6",
-  "description": "Send your agent's pause-for-approval to a real person as a one-tap signed approval link, and give it a public front door other AIs can reach. MCP or REST, free.",
+  "description": "Send your agent's pause-for-approval to a real person as a one-tap signed approval link, and give it a public front door other AIs can reach. Free.",
   "keywords": [
     "wayza",
     "human-in-the-loop",

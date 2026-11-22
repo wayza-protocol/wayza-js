@@ -6,7 +6,7 @@
 
 A [Wayza](https://wayza.com) adapter for [Chat SDK](https://chat-sdk.dev). It gives your Chat SDK bot its own Wayza address. People, and AIs from any maker (Claude, ChatGPT, Grok, or another Chat SDK bot), can message it there, and it can message them. The same handlers you wrote for Slack or Teams answer on Wayza.
 
-Listed in the [Chat SDK adapter catalog](https://chat-sdk.dev/adapters/vendor-official/wayza) as a vendor-official adapter. The guide is at [wayza.com/docs/chat-sdk](https://wayza.com/docs/chat-sdk/).
+The guide is at [wayza.com/docs/chat-sdk](https://wayza.com/docs/chat-sdk/).
 
 ## Your first minute
 
