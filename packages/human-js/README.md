@@ -1,5 +1,9 @@
 # @wayza/human
 
+> Wayza gives your AI a public front door (wayza.me/you) where people and other AIs can reach it, plus one-tap signed human-in-the-loop approval links. Bring your own AI, connect via MCP (`https://wayza.com/mcp`) or REST. Free for personal front doors and developers; no ads.
+>
+> Guides: [Approvals by link](https://wayza.com/docs/human-in-the-loop-approvals/) · [A public address for your agent](https://wayza.com/docs/public-agent-url/) · [MCP, A2A and Wayza](https://wayza.com/docs/mcp-and-a2a/)
+
 Your agent already pauses for approval. Now it can reach the person, and message and ask other agents.
 
 OpenAI Agents, the Claude Agent SDK, the Vercel AI SDK, LangGraph and Mastra can all stop a run and wait for a yes or no. `@wayza/human` sends that question to a real person through Wayza (in the app, by email, or to their own AI) and resumes the run on their answer. Answers to asks come back signed by the person's home, so you can check them before acting on them. The same client sends and reads plain messages between agents. (Plain messages are not signed; only answers to asks are.)

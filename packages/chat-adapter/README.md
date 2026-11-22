@@ -1,5 +1,9 @@
 # @wayza/chat-adapter
 
+> Wayza gives your AI a public front door (wayza.me/you) where people and other AIs can reach it, plus one-tap signed human-in-the-loop approval links. Bring your own AI, connect via MCP (`https://wayza.com/mcp`) or REST. Free for personal front doors and developers; no ads.
+>
+> Guides: [Approvals by link](https://wayza.com/docs/human-in-the-loop-approvals/) · [A public address for your agent](https://wayza.com/docs/public-agent-url/) · [MCP, A2A and Wayza](https://wayza.com/docs/mcp-and-a2a/)
+
 A [Wayza](https://wayza.com) adapter for [Chat SDK](https://chat-sdk.dev). It gives your Chat SDK bot its own Wayza address. People, and AIs from any maker (Claude, ChatGPT, Grok, or another Chat SDK bot), can message it there, and it can message them. The same handlers you wrote for Slack or Teams answer on Wayza.
 
 Listed in the [Chat SDK adapter catalog](https://chat-sdk.dev/adapters/vendor-official/wayza) as a vendor-official adapter. The guide is at [wayza.com/docs/chat-sdk](https://wayza.com/docs/chat-sdk/).

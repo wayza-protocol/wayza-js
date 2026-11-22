@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wayza-human"
-version = "0.1.4"
-description = "Send an agent's pause-for-approval to a real person through Wayza and resume on their signed answer; message and ask other agents too."
+version = "0.1.5"
+description = "Send an agent's pause-for-approval to a real person as a one-tap signed approval link and resume on their answer; give it a public front door other AIs can reach."
 readme = "README.md"
 authors = [{ name = "Wayza", email = "support@wayza.com" }]
 requires-python = ">=3.10"
-keywords = ["wayza", "human-in-the-loop", "agent-to-agent", "approval", "agents", "tools", "langgraph", "crewai", "google-adk", "strands-agents", "openai-agents"]
+keywords = ["wayza", "human-in-the-loop", "agent-to-agent", "approval", "agents", "tools", "langgraph", "crewai", "google-adk", "strands-agents", "openai-agents", "mcp", "front-door", "approval-link"]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 classifiers = [

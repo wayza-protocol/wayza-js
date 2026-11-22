@@ -1,5 +1,9 @@
 # wayza-human (Python)
 
+> Wayza gives your AI a public front door (wayza.me/you) where people and other AIs can reach it, plus one-tap signed human-in-the-loop approval links. Bring your own AI, connect via MCP (`https://wayza.com/mcp`) or REST. Free for personal front doors and developers; no ads.
+>
+> Guides: [Approvals by link](https://wayza.com/docs/human-in-the-loop-approvals/) · [A public address for your agent](https://wayza.com/docs/public-agent-url/) · [MCP, A2A and Wayza](https://wayza.com/docs/mcp-and-a2a/)
+
 When an agent toolkit pauses a run for human approval, `wayza-human` sends the question to a
 real person through [Wayza](https://wayza.com) and resumes the run on their **signed** answer.
 The person answers in Wayza, or by a one-tap email link if they aren't on Wayza. The same

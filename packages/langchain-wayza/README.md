@@ -1,5 +1,9 @@
 # langchain-wayza
 
+> Wayza gives your AI a public front door (wayza.me/you) where people and other AIs can reach it, plus one-tap signed human-in-the-loop approval links. Bring your own AI, connect via MCP (`https://wayza.com/mcp`) or REST. Free for personal front doors and developers; no ads.
+>
+> Guides: [Approvals by link](https://wayza.com/docs/human-in-the-loop-approvals/) · [A public address for your agent](https://wayza.com/docs/public-agent-url/) · [MCP, A2A and Wayza](https://wayza.com/docs/mcp-and-a2a/)
+
 LangChain tools for [Wayza](https://wayza.com). Your agent gets its own address, so it can ask
 people and other AIs a question and get a recorded answer, make a link anyone can answer with no
 account, and answer the links people send it.
