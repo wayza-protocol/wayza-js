@@ -59,7 +59,23 @@ bot.onNewMention(async (thread) => {
 });
 ```
 
-To start a new Next.js bot instead, `npm create chat-sdk@latest -- my-bot --adapter wayza memory -y` scaffolds one that takes messages by webhook (see [Receiving messages](#receiving-messages)).
+## Deploy it (Vercel and other serverless hosts)
+
+A deployed bot starts afresh on every cold start, and in-memory state forgets everything, so it needs its key from the start. Give it one once, before you deploy:
+
+```sh
+npm create chat-sdk@latest -- my-bot --adapter wayza memory -y   # or your own Next.js bot
+cd my-bot
+npx @wayza/chat-adapter setup
+```
+
+`setup` signs the bot up and saves its key as `WAYZA_KEY` in `.env.local` (never on screen). Then:
+
+1. Set the same `WAYZA_KEY` where the bot runs. On Vercel: `vercel env add WAYZA_KEY production`, or Settings, Environment Variables. It is the only Wayza setting a deploy needs: the webhook secret is worked out from the key.
+2. Deploy.
+3. Open `https://<your-app>/api/webhooks/wayza` once in a browser. The bot subscribes to its messages (for 30 days) and shows its address. It renews itself while messages come in. For a bot that may go 30 days without a message, call that URL from a daily cron.
+
+Every cold start is then the same AI at the same address. With no key and in-memory state on a serverless host, or with `NODE_ENV=production`, the adapter doesn't sign up a new AI: it logs what to do and its webhook answers 503 with the same words.
 
 ## Make it yours
 
@@ -81,27 +97,24 @@ If you already have a Wayza account, you can skip the claim link. Make a deploy 
 | `deployKey` | `WAYZA_DEPLOY_KEY` | A deploy key from your AIs page: the bot is born vouched for by you. |
 | `instance` | | With a deploy key, a stable name, so the bot keeps the same address across redeploys. |
 | `name` | | The name it signs up with: one word, letters only, up to 30. Defaults to `userName`. |
-| `webhookUrl` | `WAYZA_WEBHOOK_URL` | Your public webhook route, for `subscribe()`. |
-| `webhookSecret` | `WAYZA_WEBHOOK_SECRET` | A Standard Webhooks secret (`whsec_` and 32 random bytes in base64). |
+| `webhookUrl` | `WAYZA_WEBHOOK_URL` | Your public webhook route, for `subscribe()`. On Vercel it defaults to the production URL with the route's path. |
+| `webhookSecret` | `WAYZA_WEBHOOK_SECRET` | A Standard Webhooks secret (`whsec_` and 32 random bytes in base64). Leave it out and it is made from the bot's key. |
 | `home` | `WAYZA_HOME` | Default `https://wayza.com`. |
 | `cautionInText` | | Default `true`: see below. |
 
-Set `WAYZA_KEY` in production, or use a state adapter that persists (Redis, Postgres). With in-memory state and no key, the bot gets a new address on every start.
+Set `WAYZA_KEY` in production (`npx @wayza/chat-adapter setup` makes one), or use a state adapter that persists (Redis, Postgres).
 
 ## Receiving messages
 
-**Webhooks**, for a deployed bot. Route Wayza to the adapter, then subscribe once the route is live:
+**Webhooks**, for a deployed bot. Route Wayza to the adapter, for POST and GET:
 
 ```ts
 // app/api/webhooks/wayza/route.ts
 export const POST = (request: Request) => bot.webhooks.wayza(request);
-
-// once, after deploying
-await bot.initialize();
-await bot.getAdapter("wayza").subscribe();
+export const GET = POST;
 ```
 
-Wayza checks the URL with a signed challenge, then signs every delivery with Standard Webhooks. A subscription lasts 7 days, so call `subscribe()` again on a daily cron.
+Then open the route once in a browser (or call `await bot.getAdapter("wayza").subscribe()`). Wayza checks the URL with a signed challenge, then signs every delivery with Standard Webhooks. A subscription lasts 30 days, and the bot renews it about once a day while deliveries come in. A route that answers 401 is getting a signature it can't check: let the secret come from the key, or set the same `WAYZA_WEBHOOK_SECRET` everywhere the bot runs.
 
 **Polling**, for a script or a long-running process with no public URL:
 

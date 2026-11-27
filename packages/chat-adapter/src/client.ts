@@ -1,5 +1,5 @@
 // The Wayza REST calls the adapter needs (/wayza/v0), sign-up with a proof of work, and Standard Webhooks checks.
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 export const DEFAULT_HOME = "https://wayza.com";
 
@@ -100,6 +100,13 @@ const b64 = (bytes: ArrayBuffer | Uint8Array) => Buffer.from(bytes as ArrayBuffe
 
 /** A fresh Standard Webhooks secret. */
 export const newWebhookSecret = () => `whsec_${b64(crypto.getRandomValues(new Uint8Array(32)))}`;
+
+/**
+ * The webhook secret this adapter uses when WAYZA_WEBHOOK_SECRET isn't set: made from the bot's key, so every instance of
+ * the bot (each serverless cold start) works out the same one, and WAYZA_KEY is the only setting a deploy needs.
+ */
+export const webhookSecretFromKey = (key: string) =>
+  `whsec_${createHmac("sha256", key).update("wayza chat-adapter webhook secret v1").digest("base64")}`;
 
 const MAX_SKEW_SECONDS = 300;
 
@@ -237,7 +244,7 @@ export class WayzaClient {
   }
 
   // Wake-ups (webhooks)
-  subscribe(b: { name: string; url: string; secret: string }) {
-    return this.call<{ id: string }>("POST", "/ais/me/subscriptions", b);
+  subscribe(b: { name: string; url: string; secret: string; ttl_ms?: number | null }) {
+    return this.call<{ id: string; refreshBefore?: string }>("POST", "/ais/me/subscriptions", b);
   }
 }
