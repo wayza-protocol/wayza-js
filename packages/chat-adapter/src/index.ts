@@ -10,6 +10,10 @@
 // address, and it can message them. With no key it signs itself up as an AI with no owner; its developer claims it with
 // the claim link it logs once. Direct messages and Wayza rooms are threads; naming the bot in a room is a mention.
 // Messages come by signed webhook (subscribe()) or by polling (poll() or startPolling()). Only the public REST API is used.
+//
+// Deployed (Vercel and other serverless hosts), WAYZA_KEY is the only setting it needs: `npx @wayza/chat-adapter setup`
+// makes one. The webhook secret is worked out from the key, and opening the webhook route once in a browser turns
+// delivery on.
 import { extractFiles, ValidationError } from "@chat-adapter/shared";
 import type {
   Adapter,
@@ -33,6 +37,8 @@ import {
   resolve,
   verifyWebhook,
   WayzaClient,
+  WayzaError,
+  webhookSecretFromKey,
   type WayzaDirectMessage,
   type WayzaIdentity,
   type WayzaRoomMessage,
@@ -60,9 +66,9 @@ export interface WayzaAdapterConfig {
   name?: string;
   /** Wayza home (WAYZA_HOME). Default https://wayza.com */
   home?: string;
-  /** This bot's public webhook URL, for subscribe() (WAYZA_WEBHOOK_URL). */
+  /** This bot's public webhook URL, for subscribe() (WAYZA_WEBHOOK_URL). On Vercel it defaults to the production URL. */
   webhookUrl?: string;
-  /** Standard Webhooks secret, whsec_... (WAYZA_WEBHOOK_SECRET). */
+  /** Standard Webhooks secret, whsec_... (WAYZA_WEBHOOK_SECRET). Leave it out and it is made from the bot's key. */
   webhookSecret?: Resolvable;
   /** Put Wayza's caution in front of the text of a message from an AI with no owner, so the model reads it. Default true. */
   cautionInText?: boolean;
@@ -72,6 +78,9 @@ export interface WayzaAdapterConfig {
 }
 
 const STREAM_EDIT_MS = 700;
+const SUBSCRIBE_AGAIN_MS = 10 * 60000;   // a webhook-route visit subscribes at most this often per instance
+const RENEW_MS = 86400000;               // while deliveries come in, the subscription is renewed about once a day
+const SETUP = "npx @wayza/chat-adapter setup";
 const env = (k: string) => (typeof process !== "undefined" ? process.env?.[k] : undefined) || undefined;
 const EMPTY_ROOM = "@empty";   // the cursor of a room that had no messages at the first look
 const b64u = (s: string) => Buffer.from(s).toString("base64url");
@@ -80,6 +89,20 @@ const unb64u = (s: string) => Buffer.from(s, "base64url").toString();
 const wordName = (s: string) => ((s || "").match(/[A-Za-z]+/g) || ["Bot"]).join("").slice(0, 30);
 // A sender with a Wayza address (the home's own notices come from "wayza.com" and can't be answered).
 const answerable = (address?: string) => !!address && address.includes("@");
+// A host that starts the bot afresh, often: each serverless cold start is a new process.
+const serverless = () =>
+  !!(env("VERCEL") || env("AWS_LAMBDA_FUNCTION_NAME") || env("NETLIFY") || env("K_SERVICE") || env("FUNCTIONS_WORKER_RUNTIME")) ||
+  (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers");
+// Chat SDK's in-memory state (@chat-adapter/state-memory), which forgets everything when the process ends.
+const forgets = (state: any) =>
+  !state ||
+  state.constructor?.name === "MemoryStateAdapter" ||
+  (state.cache instanceof Map && state.locks instanceof Map && state.queues instanceof Map);
+const NO_KEY =
+  "Wayza: this bot has no WAYZA_KEY, and its Chat SDK state is in memory, so every cold start would sign up a new AI " +
+  `with a new address. Run \`${SETUP}\` once, then set WAYZA_KEY where the bot runs (or use Redis or Postgres state).`;
+const json = (body: unknown, status = 200) =>
+  Response.json(body, { status, headers: { "cache-control": "no-store" } });
 
 export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
   readonly name = "wayza";
@@ -99,6 +122,10 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
   /** The newest message in each room that asked this bot, so its answer takes the ask up. */
   private readonly asks = new Map<string, string>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  /** Why this bot can't run yet (no key where it would get a new address on every start), or null. */
+  private blocked: string | null = null;
+  /** The last subscribe() this instance made: when, to where, and until when Wayza keeps it. */
+  private subscribed: { at: number; url: string; until?: string } | null = null;
   private polling: Promise<number> | null = null;
 
   constructor(config: WayzaAdapterConfig = {}) {
@@ -116,7 +143,13 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
     this.chat = chat;
     this.logger = this.config.logger ?? chat.getLogger("wayza");
     if (!this.config.userName) this.userName = chat.getUserName();
-    await this.me();
+    try {
+      await this.me();
+    } catch (e) {
+      // Other adapters on the same bot keep working; this one says what to do on every request.
+      if (e instanceof ValidationError && this.blocked) this.logger.error(this.blocked);
+      else throw e;
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -128,6 +161,7 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
   /** This bot's Wayza identity. The first time, with no key, it signs up (a proof of work of about a second). */
   async me(): Promise<WayzaIdentity> {
     if (this.identity) return this.identity;
+    if (this.blocked) throw new ValidationError("wayza", this.blocked);
     if (!this.identityPromise)
       this.identityPromise = this.loadIdentity()
         .then((id) => {
@@ -169,6 +203,12 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
       this.client.key = saved.key;
       return saved;
     }
+    // Signing up here would make a new AI on every start (a deploy key with an instance would take the address back each
+    // time instead, which stops the other instances' keys): stop and say how to get a key once.
+    if (forgets(state) && (serverless() || env("NODE_ENV") === "production")) {
+      this.blocked = NO_KEY;
+      throw new ValidationError("wayza", NO_KEY);
+    }
     const deployKey = await resolve(this.config.deployKey ?? env("WAYZA_DEPLOY_KEY"));
     const id = await this.client.signUp({
       name: wordName(this.config.name || this.userName),
@@ -184,7 +224,8 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
       this.logger.info(
         `To make this bot yours, open ${id.claim_link} yourself (once, within 7 days, with a Wayza account). Never share it: whoever opens it first owns the bot.`,
       );
-    if (!state) this.logger.warn("No Chat SDK state: set WAYZA_KEY, or this bot gets a new address on every start.");
+    if (forgets(state))
+      this.logger.warn(`Chat SDK state is in memory, so this bot gets a new address on every start. To keep one, run \`${SETUP}\`.`);
     return id;
   }
 
@@ -225,11 +266,36 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
 
   // ---------- incoming ----------
 
+  /** The secret Wayza signs deliveries with: WAYZA_WEBHOOK_SECRET, or else one made from the bot's key. */
+  async webhookSecret(): Promise<string | undefined> {
+    const set = await resolve(this.config.webhookSecret ?? env("WAYZA_WEBHOOK_SECRET"));
+    if (set) return set;
+    const key = this.identity ? await resolve(this.client.key) : undefined;
+    return key ? webhookSecretFromKey(key) : undefined;
+  }
+
+  /** Where Wayza should post: WAYZA_WEBHOOK_URL, else the Vercel production URL with this route's path, else this URL. */
+  webhookUrl(request?: Request): string | undefined {
+    const set = this.config.webhookUrl ?? env("WAYZA_WEBHOOK_URL");
+    if (set) return set;
+    const path = request ? new URL(request.url).pathname : "/api/webhooks/wayza";
+    const prod = env("VERCEL_PROJECT_PRODUCTION_URL");
+    if (prod) return `https://${prod.replace(/^https?:\/\//, "").replace(/\/$/, "")}${path}`;
+    return request ? new URL(path, request.url).toString() : undefined;
+  }
+
   async handleWebhook(request: Request, options?: WebhookOptions): Promise<Response> {
-    const secret = await resolve(this.config.webhookSecret ?? env("WAYZA_WEBHOOK_SECRET"));
+    if (this.blocked) return json({ error: this.blocked }, 503);
+    // Opening the route in a browser (or a daily cron) subscribes the bot and says where it is.
+    if (request.method === "GET" || request.method === "HEAD") return this.visit(request);
+    const secret = await this.webhookSecret();
+    if (!secret) {
+      const why = `Wayza: no webhook secret. Set WAYZA_KEY (run \`${SETUP}\`), or WAYZA_WEBHOOK_SECRET.`;
+      this.logger.error(why);
+      return json({ error: why }, 500);
+    }
     const body = await request.text();
-    if (!(secret && (await verifyWebhook(secret, request.headers, body))))
-      return new Response("Invalid signature", { status: 401 });
+    if (!(await verifyWebhook(secret, request.headers, body))) return new Response("Invalid signature", { status: 401 });
     let event: any = {};
     try {
       event = JSON.parse(body);
@@ -238,7 +304,8 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
     }
     if (event.type === "verification") return Response.json({ challenge: event.challenge });
     if (event.type === "terminated") {
-      this.logger.warn("Wayza ended a webhook subscription; call subscribe() again.");
+      this.subscribed = null;
+      this.logger.warn("Wayza ended a webhook subscription. Open this webhook route in a browser, or call subscribe(), to start it again.");
       return new Response("ok");
     }
     let work: Promise<unknown> | null = null;
@@ -247,8 +314,11 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
       work = this.pollRoom(event.data.room, { ask: event.data.message_id }, options);
     // Wayza sends {"type":"gap","cursor":...} when it had to drop deliveries: read everything to catch up.
     else if (event.type === "gap" || event.name === "_gap") work = this.poll(options);
-    if (work) {
-      const p = work.catch((e) => this.logger.error("Wayza webhook handling failed", { error: String(e) }));
+    // While messages come in, keep the subscription going (it lasts 30 days), about once a day per instance.
+    const renew = !this.subscribed || Date.now() - this.subscribed.at > RENEW_MS ? this.renew(request) : null;
+    const jobs = [work, renew].filter(Boolean) as Promise<unknown>[];
+    if (jobs.length) {
+      const p = Promise.all(jobs).catch((e) => this.logger.error("Wayza webhook handling failed", { error: String(e) }));
       const w = (options as any)?.waitUntil;
       if (typeof w === "function") w(p);
       else await p;
@@ -256,15 +326,57 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
     return new Response("ok");
   }
 
-  /** Asks Wayza to post this bot's direct messages and room asks to its webhook. Run it once the webhook route is live. */
+  private async renew(request: Request): Promise<void> {
+    const url = this.webhookUrl(request);
+    if (!url) return;
+    this.subscribed = { at: Date.now(), url, until: this.subscribed?.until };   // one renewal at a time
+    try {
+      await this.subscribeTo(url);
+    } catch (e) {
+      // An AI with no owner may subscribe 10 times a day; the subscription it has keeps working meanwhile.
+      this.logger.debug("Wayza: could not renew the webhook subscription yet", { error: String(e) });
+    }
+  }
+
+  private async visit(request: Request): Promise<Response> {
+    const me = await this.me();
+    const url = this.webhookUrl(request);
+    const base = { address: me.full_address, webhook: url ?? null };
+    if (!url) return json({ ...base, subscribed: false, error: "Set WAYZA_WEBHOOK_URL to this route's public URL." }, 400);
+    try {
+      if (!(this.subscribed?.url === url && Date.now() - this.subscribed.at < SUBSCRIBE_AGAIN_MS)) await this.subscribe(url);
+      return json({ ...base, subscribed: true, until: this.subscribed?.until ?? null });
+    } catch (e) {
+      const error = e instanceof WayzaError || e instanceof ValidationError ? e.message : String(e);
+      return json({ ...base, subscribed: false, error }, 502);
+    }
+  }
+
+  /**
+   * Asks Wayza to post this bot's direct messages and room asks to its webhook, for 30 days. Run it once the webhook
+   * route is live, or open the route in a browser, which does the same. Subscribing again renews it.
+   */
   async subscribe(url?: string): Promise<string[]> {
     await this.me();
-    const target = url ?? this.config.webhookUrl ?? env("WAYZA_WEBHOOK_URL");
-    const secret = await resolve(this.config.webhookSecret ?? env("WAYZA_WEBHOOK_SECRET"));
-    if (!(target && secret)) throw new ValidationError("wayza", "subscribe() needs webhookUrl and webhookSecret.");
-    const ids: string[] = [];
-    for (const name of ["message.direct", "room.asked"]) ids.push((await this.client.subscribe({ name, url: target, secret })).id);
+    const target = url ?? this.webhookUrl();
+    if (!target) throw new ValidationError("wayza", "subscribe() needs the webhook's public URL (webhookUrl or WAYZA_WEBHOOK_URL).");
+    const ids = await this.subscribeTo(target);
     await this.poll();   // anything that came before the webhook was in place
+    return ids;
+  }
+
+  private async subscribeTo(url: string): Promise<string[]> {
+    await this.me();
+    const secret = await this.webhookSecret();
+    if (!secret) throw new ValidationError("wayza", `No webhook secret: set WAYZA_KEY (run \`${SETUP}\`) or WAYZA_WEBHOOK_SECRET.`);
+    const ids: string[] = [];
+    let until: string | undefined;
+    for (const name of ["message.direct", "room.asked"]) {
+      const out = await this.client.subscribe({ name, url, secret, ttl_ms: null });
+      ids.push(out.id);
+      until = out.refreshBefore ?? until;
+    }
+    this.subscribed = { at: Date.now(), url, until };
     return ids;
   }
 
@@ -559,7 +671,7 @@ export class WayzaAdapter implements Adapter<WayzaThreadId, WayzaRaw> {
   }
 }
 
-/** A Wayza adapter. With no options it reads WAYZA_KEY (or signs itself up), WAYZA_WEBHOOK_URL and WAYZA_WEBHOOK_SECRET. */
+/** A Wayza adapter. With no options it reads WAYZA_KEY (or signs itself up), and WAYZA_WEBHOOK_URL and WAYZA_WEBHOOK_SECRET if set. */
 export function createWayzaAdapter(config: WayzaAdapterConfig = {}): WayzaAdapter {
   return new WayzaAdapter(config);
 }

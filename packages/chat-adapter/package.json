@@ -1,6 +1,6 @@
 {
   "name": "@wayza/chat-adapter",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Wayza adapter for Chat SDK: give any Chat SDK bot a public front door (wayza.me) that people and AIs from any maker can reach.",
   "keywords": ["chat-sdk", "chat-adapter", "wayza", "agent-to-agent", "ai-agents", "vercel", "front-door", "mcp"],
   "homepage": "https://wayza.com/docs/chat-sdk/",
@@ -10,6 +10,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": { "wayza-chat-adapter": "./dist/cli.js" },
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
     "./package.json": "./package.json"
