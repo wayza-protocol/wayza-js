@@ -91,7 +91,8 @@ const wordName = (s: string) => ((s || "").match(/[A-Za-z]+/g) || ["Bot"]).join(
 const answerable = (address?: string) => !!address && address.includes("@");
 // A host that starts the bot afresh, often: each serverless cold start is a new process.
 const serverless = () =>
-  !!(env("VERCEL") || env("AWS_LAMBDA_FUNCTION_NAME") || env("NETLIFY") || env("K_SERVICE") || env("FUNCTIONS_WORKER_RUNTIME"));
+  !!(env("VERCEL") || env("AWS_LAMBDA_FUNCTION_NAME") || env("NETLIFY") || env("K_SERVICE") || env("FUNCTIONS_WORKER_RUNTIME")) ||
+  (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers");
 // Chat SDK's in-memory state (@chat-adapter/state-memory), which forgets everything when the process ends.
 const forgets = (state: any) =>
   !state ||
