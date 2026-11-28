@@ -2,7 +2,7 @@
 // REST contract: packages/CONTRACT.md. No runtime dependencies (global fetch + crypto.subtle).
 
 // Keep in step with package.json (a test checks it). Browsers ignore it; servers count it.
-export const VERSION = '0.1.6';
+export const VERSION = '0.1.7';
 const USER_AGENT = `wayza-human-js/${VERSION}`;
 
 const SETTLED = new Set(['approved', 'declined', 'answered', 'expired', 'cancelled']);
@@ -236,7 +236,7 @@ export class Wayza {
    * agent's next run can read it; give `claimLink` only to the agent's own person, privately.
    * @param {{ name: string, platform?: string, deployKey?: string, instance?: string, proof?: { challenge: string, nonce: string }, home?: string, fetch?: typeof fetch, signal?: AbortSignal }} opts
    */
-  static async signUp({ name, platform, deployKey, instance, proof, home = 'https://wayza.com', fetch: f, signal } = /** @type {any} */ ({})) {
+  static async signUp({ name, platform, deployKey, instance, externalId, proof, home = 'https://wayza.com', fetch: f, signal } = /** @type {any} */ ({})) {
     if (!name) throw new TypeError('signUp() needs a name');
     const path = '/agents';
     const fetcher = f ?? globalThis.fetch.bind(globalThis);
@@ -255,6 +255,7 @@ export class Wayza {
         ...(platform != null && { platform }),
         ...(deployKey != null && { deploy_key: deployKey }),
         ...(instance != null && { instance }),
+        ...(externalId != null && { external_id: externalId }),
         ...(proof != null && { proof }),
       }),
       signal,
@@ -537,6 +538,46 @@ const hostOf = (home) => (/^[a-z][a-z0-9+.-]*:\/\//i.test(home) ? new URL(home).
  * @param {any} signedAnswer
  * @param {{ home?: string|null, fetch?: typeof fetch, insecure?: boolean }} [opts] insecure allows http:// homes (local dev/tests).
  */
+/**
+ * Check that an address's card (its passport) is signed by the home it names: fetch https://<home>/a/<address>.json and
+ * the home's keys from /.well-known/wayza.json, and verify the Ed25519 signature over the card's identity. Returns
+ * { card, verified: true, kid, covers } or throws WayzaVerifyError. No key needed.
+ * @param {string} address like @ai-3f9a1c2b or ai-3f9a1c2b@wayza.com
+ * @param {{ home?: string, fetch?: typeof fetch, insecure?: boolean }} [opts]
+ */
+export async function verifyCard(address, { home = 'https://wayza.com', fetch: f = globalThis.fetch.bind(globalThis), insecure = false } = {}) {
+  const fail = (m) => { throw new WayzaVerifyError(m); };
+  const a = String(address || '').trim().replace(/^@/, '');
+  if (!a) fail('No address');
+  const [handle, at] = a.split('@');
+  const origin = at ? `https://${at}` : new URL(home).origin;
+  if (!origin.startsWith('https:') && !insecure) fail('A card must come over https');
+  const res = await f(`${origin}/a/${encodeURIComponent(handle)}.json`, { headers: { accept: 'application/json', 'user-agent': USER_AGENT } });
+  const card = await readReply(res, 'GET', `/a/${handle}.json`);
+  const sig = card?.signature;
+  if (!sig?.kid || !sig?.value || sig.alg !== 'Ed25519') fail('The card carries no Ed25519 signature');
+  if (typeof card.home !== 'string' || new URL(origin).host !== card.home) fail(`The card names home ${card.home}, not ${new URL(origin).host}`);
+  const details = await readReply(await f(`${origin}/.well-known/wayza.json`, { headers: { accept: 'application/json', 'user-agent': USER_AGENT } }), 'GET', '/.well-known/wayza.json');
+  const entry = (details?.home?.keys ?? []).find((k) => k.kid === sig.kid && !k.retired);
+  if (!entry) fail(`Unknown key ${sig.kid} for ${card.home}`);
+  // What the home signs (wayza-server homes.js cardClaims): the card's identity, in canonical JSON.
+  const claims = { id: card.id, full_address: card.full_address, kind: card.kind, home: card.home,
+    owner: card.owner ? card.owner.id || null : null, owner_status: card.owner ? card.owner.status || null : null };
+  if (card.owner?.vouched_by) claims.vouched_by = { kind: card.owner.vouched_by.kind || null, name: card.owner.vouched_by.name || null };
+  if (Array.isArray(card.links) && card.links.length) claims.links = card.links.map((l) => ({ kind: l.kind || null, ref: l.ref || null, org: l.org || null }));
+  if (card.type) claims.type = card.type;
+  if (card.description) claims.description = { text: card.description.text || null, by: card.description.by || null };
+  if (card.key_since) claims.key_since = card.key_since;
+  if (card.owner?.private) claims.owner_private = true;
+  let ok = false;
+  try {
+    const key = await crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: entry.jwk?.x }, { name: 'Ed25519' }, false, ['verify']);
+    ok = await crypto.subtle.verify({ name: 'Ed25519' }, key, b64(sig.value), new TextEncoder().encode(canonical(claims)));
+  } catch { ok = false; }
+  if (!ok) fail(`The signature on ${card.full_address ?? a}'s card does not check out`);
+  return { card, verified: true, kid: sig.kid, covers: sig.covers ?? [] };
+}
+
 export async function verify(signedAnswer, { home = 'https://wayza.com', fetch: f = globalThis.fetch.bind(globalThis), insecure = false } = {}) {
   const fail = (m) => { throw new WayzaVerifyError(m); };
   if (!signedAnswer || typeof signedAnswer !== 'object') fail('No signed answer');
