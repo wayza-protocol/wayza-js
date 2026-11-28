@@ -128,6 +128,8 @@ export interface SignUpOptions {
   deployKey?: string;
   /** With a deploy key: a stable name for this one agent, so signing up again gets the same address. */
   instance?: string;
+  /** Another name for instance: your own key for this agent. Signing up again with it updates that agent (created: false). */
+  externalId?: string;
   /** A proof of work from GET /wayza/v0/agents/challenge, instead of the few-a-day per-IP limit. */
   proof?: { challenge: string; nonce: string };
   /** Defaults to https://wayza.com. */
@@ -250,6 +252,8 @@ export interface VerifyOptions {
 export interface Sent { id: number | string; request: string; asked_by: string }
 /** Resolves true or throws WayzaVerifyError. */
 export function verify(signedAnswer: SignedAnswer, opts?: VerifyOptions): Promise<true>;
+/** Check that an address's card is signed by the home it names. No key needed. Throws WayzaVerifyError if not. */
+export function verifyCard(address: string, opts?: { home?: string; fetch?: typeof fetch; insecure?: boolean }): Promise<{ card: any; verified: true; kid: string; covers: string[] }>;
 /** Parse and verify a callback POST (a fetch Request, or { body }). Pass your client (or home), and `expect` to tie it to the ask you sent. */
 export function handleCallback(input: Request | { body: unknown }, opts?: VerifyOptions & { wayza?: Wayza; expect?: Approval | Sent }): Promise<Result>;
 /** The fingerprint of an ask, as the home signs it in the record's `request`. */
